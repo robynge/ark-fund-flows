@@ -88,15 +88,27 @@ etf_ts = etf_df.set_index("Date").sort_index()
 cc = cross_correlation(etf_ts[fc_z], etf_ts[rc_z], max_lag)
 
 if len(cc) > 0:
+    freq_label = {"D": "days", "W": "weeks", "ME": "months", "QE": "quarters"}[freq]
     colors = ["#2ca02c" if p < 0.05 else "#c7c7c7" for p in cc["p_value"]]
-    fig3 = go.Figure(go.Bar(x=cc["lag"], y=cc["correlation"], marker_color=colors))
+    sig_labels = ["Significant" if p < 0.05 else "Not significant" for p in cc["p_value"]]
+    hover_texts = [
+        f"Lag: {int(row.lag)} {freq_label}<br>"
+        f"Correlation: {row.correlation:.4f}<br>"
+        f"p-value: {row.p_value:.4f}<br>"
+        f"{'✓ Significant' if row.p_value < 0.05 else '✗ Not significant'}<br>"
+        f"{'Past return → current flow' if row.lag > 0 else ('Current flow → future return' if row.lag < 0 else 'Same period')}"
+        for row in cc.itertuples()
+    ]
+    fig3 = go.Figure(go.Bar(
+        x=cc["lag"], y=cc["correlation"], marker_color=colors,
+        hovertext=hover_texts, hoverinfo="text",
+    ))
     n = len(etf_ts[[fc_z, rc_z]].dropna())
     if n > 0:
         ci = 1.96 / n ** 0.5
         fig3.add_hline(y=ci, line_dash="dot", line_color="red", opacity=0.5)
         fig3.add_hline(y=-ci, line_dash="dot", line_color="red", opacity=0.5)
     fig3.add_hline(y=0, line_color="gray", opacity=0.4)
-    freq_label = {"D": "days", "W": "weeks", "ME": "months", "QE": "quarters"}[freq]
     fig3.update_layout(height=350, xaxis_title=f"Lag ({freq_label})", yaxis_title="Correlation",
                        margin=dict(l=60, r=40, t=20, b=30))
     st.plotly_chart(fig3, use_container_width=True)
