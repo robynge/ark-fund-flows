@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 from data_loader import get_prepared_data, ETF_NAMES
-from analysis import cross_correlation, lag_regression, granger_causality_test
+from analysis import cross_correlation, lag_regression, granger_causality_test, seasonality_analysis
 
 st.set_page_config(page_title="ARK Fund Flows Analysis", layout="wide")
 st.title("ARK ETF: Fund Flows vs Stock Price")
@@ -113,7 +113,9 @@ col_left, col_right = st.columns(2)
 
 with col_left:
     st.markdown(f"**OLS: Flow(t) ~ Lagged Returns**")
-    result = lag_regression(etf_df, fc, rc, lags)
+    add_months = st.checkbox("Control for Seasonality", value=False,
+                             help="Add month dummies to control for January reallocation etc.")
+    result = lag_regression(etf_df, fc, rc, lags, add_month_dummies=add_months)
     if result:
         st.metric("R²", f"{result['r_squared']:.4f}")
         coef = result["coefficients"]
@@ -151,3 +153,34 @@ for etf in ETF_NAMES:
 summary = pd.DataFrame(rows)
 st.dataframe(summary.style.format({"R²": "{:.4f}", "F_p": "{:.4f}"}),
              hide_index=True, use_container_width=True)
+
+# ============================================================
+# 6. Seasonality
+# ============================================================
+st.markdown("---")
+st.subheader(f"{selected_etf} — Seasonality: Average Flow by Month")
+
+daily_df = load("D")
+etf_daily = daily_df[daily_df["ETF"] == selected_etf]
+seasonal = seasonality_analysis(etf_daily, "Fund_Flow")
+
+if len(seasonal) > 0:
+    m_colors = ["#2ca02c" if m >= 0 else "#d62728" for m in seasonal["Mean"]]
+    fig_s = go.Figure(go.Bar(
+        x=seasonal["Month_Name"], y=seasonal["Mean"], marker_color=m_colors,
+        error_y=dict(type="data", array=seasonal["Std"] / seasonal["Count"] ** 0.5, visible=True),
+    ))
+    fig_s.update_layout(height=350, yaxis_title="Avg Daily Flow ($M)",
+                        margin=dict(l=60, r=40, t=20, b=30))
+    fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
+    st.plotly_chart(fig_s, use_container_width=True)
+
+    # January t-test
+    jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
+    other = etf_daily[etf_daily["Date"].dt.month != 1]["Fund_Flow"].dropna()
+    if len(jan) > 5 and len(other) > 5:
+        t, p = stats.ttest_ind(jan, other, equal_var=False)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Jan Avg ($M/day)", f"{jan.mean():.2f}")
+        c2.metric("Other Months Avg", f"{other.mean():.2f}")
+        c3.metric("t-test p-value", f"{p:.4f}")
