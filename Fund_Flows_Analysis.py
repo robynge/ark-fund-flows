@@ -37,6 +37,8 @@ if freq == "D":
 else:
     fc, rc, fc_z, rc_z = "Flow_Sum", "Return_Cum", "Flow_Sum_Z", "Return_Cum_Z"
 
+close_col = "Close" if freq == "D" else "Close_Last"
+
 # ============================================================
 # 1. Price vs Cumulative Flows
 # ============================================================
@@ -44,7 +46,7 @@ st.subheader(f"{selected_etf} — Price vs Cumulative Flows")
 
 etf_df["Cum_Flow"] = etf_df[fc].cumsum()
 fig1 = make_subplots(specs=[[{"secondary_y": True}]])
-fig1.add_trace(go.Scatter(x=etf_df["Date"], y=etf_df["Close"], name="Price",
+fig1.add_trace(go.Scatter(x=etf_df["Date"], y=etf_df[close_col], name="Price",
                           line=dict(color="#1f77b4", width=2)), secondary_y=False)
 fig1.add_trace(go.Scatter(x=etf_df["Date"], y=etf_df["Cum_Flow"], name="Cum Flow ($M)",
                           line=dict(color="#ff7f0e", width=2),
