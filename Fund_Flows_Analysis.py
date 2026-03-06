@@ -15,6 +15,26 @@ from analysis import cross_correlation, lag_regression, granger_causality_test, 
 st.set_page_config(page_title="ARK Fund Flows Analysis", layout="wide")
 st.title("ARK ETF: Fund Flows vs Stock Price")
 
+with st.expander("Project Summary"):
+    st.markdown("""
+**Objective**: Investigate the relationship between ARK ETF stock price performance and fund flows across 9 ARK ETFs (ARKK, ARKF, ARKG, ARKX, ARKB, ARKQ, ARKW, PRNT, IZRL) using daily data from 2014–2026.
+
+**Methodology**:
+- Z-score normalization to standardize flows and returns onto a comparable scale
+- Aggregation from daily to weekly, monthly, and quarterly frequencies to reduce noise
+- Cross-correlation analysis at multiple lag horizons to identify the timing of the relationship
+- OLS regressions with lagged returns as predictors, with optional month dummies to control for seasonality
+- Granger causality tests to determine the direction of the relationship
+
+**Key Findings**:
+1. **Daily data is too noisy** — contemporaneous correlations at daily frequency are weak (r ≈ 0.05–0.20). The relationship only becomes visible at monthly and quarterly horizons.
+2. **Past returns predict future flows** — At quarterly frequency, lagged returns explain 19–53% of flow variation (ARKK R² = 0.19, ARKG R² = 0.43, ARKQ R² = 0.53), confirming the performance-chasing hypothesis.
+3. **Causality is one-directional** — Granger tests show Returns → Flows is significant for most ETFs (e.g., ARKG p = 0.0001), but Flows → Returns is not significant. Investors chase past performance, but their flows do not predict future returns.
+4. **The lag is 1–2 quarters** — The strongest predictive power comes from returns 1–2 quarters prior, consistent with investors reacting to quarterly performance reports.
+5. **The effect varies by ETF** — Popular thematic funds (ARKG, ARKQ, ARKK) show the strongest performance-chasing behavior. Niche ETFs (PRNT, IZRL) show little to no effect.
+""")
+
+
 # --- Sidebar ---
 with st.sidebar:
     selected_etf = st.selectbox("ETF", ETF_NAMES, index=0)
