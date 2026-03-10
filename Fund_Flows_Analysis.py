@@ -40,23 +40,27 @@ section's question, building a complete research narrative.
 """)
 
 # --- Sidebar ---
+BENCHMARK_OPTIONS = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}
+
 with st.sidebar:
     freq = st.selectbox(
         "Frequency", ["D", "W", "ME", "QE"],
         format_func={"D": "Daily", "W": "Weekly", "ME": "Monthly", "QE": "Quarterly"}.get,
         index=2,
     )
+    benchmark_label = st.selectbox("Benchmark", list(BENCHMARK_OPTIONS.keys()))
+    benchmark = BENCHMARK_OPTIONS[benchmark_label]
     selected_etf = st.selectbox("Per-ETF View", ALL_ETF_NAMES, index=0)
     st.markdown("---")
     st.caption("38 ETFs: 9 ARK + 29 tech peers")
 
 
 @st.cache_data(show_spinner="Loading 38 ETFs...")
-def load_peer_data(freq):
-    return get_prepared_data_with_peers(freq=freq, zscore_type="full")
+def load_peer_data(freq, benchmark):
+    return get_prepared_data_with_peers(freq=freq, zscore_type="full", benchmark=benchmark)
 
 
-df = load_peer_data(freq)
+df = load_peer_data(freq, benchmark)
 
 if freq == "D":
     fc, rc, fc_z, rc_z = "Fund_Flow", "Return", "Fund_Flow_Z", "Return_Z"
@@ -264,17 +268,22 @@ else:
 # ============================================================
 st.markdown("---")
 st.header("3. Absolute vs Relative Performance")
-st.markdown("""
+_bench_desc = {
+    "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
+}
+st.markdown(f"""
 **Question**: Do investors react to the fund's own return, or how it performed
-relative to peers?
+relative to the market?
+
+Benchmark: **{_bench_desc[benchmark]}**
 
 For each ETF we run three models predicting flows from lagged returns:
 - **Absolute** — the ETF's own return
-- **Excess** — return minus peer-group average (relative performance)
+- **Excess** — return minus {_bench_desc[benchmark]} (relative performance)
 - **Combined** — both together
 
-If R² Excess > R² Absolute, investors care more about **relative ranking**
-than raw performance.
+If R² Excess > R² Absolute, investors care more about **relative performance**
+than raw return.
 """)
 
 # Per-ETF: R² by lag, absolute vs excess

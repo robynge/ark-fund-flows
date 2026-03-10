@@ -2,12 +2,14 @@
 import logging
 import pandas as pd
 import numpy as np
+import yfinance as yf
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 EXCEL_PATH = Path(__file__).parent.parent / "ARK ETF Fund Flows.xlsx"
 PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
 PEER_ETF_NAMES = [
@@ -201,11 +203,84 @@ def add_peer_benchmark(df: pd.DataFrame, return_col: str,
     return df
 
 
+def load_market_benchmark(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
+    """Download SPY or QQQ daily data via yfinance, cache to CSV.
+
+    Returns DataFrame with columns: Date, Benchmark_Return (daily return).
+    """
+    DATA_DIR.mkdir(exist_ok=True)
+    cache_path = DATA_DIR / f"{ticker}.csv"
+
+    if cache_path.exists():
+        cached = pd.read_csv(cache_path, parse_dates=["Date"])
+        cached_end = cached["Date"].max()
+        # Re-download if cache is more than 3 days stale
+        if cached_end >= pd.Timestamp(end_date) - pd.Timedelta(days=3):
+            return cached
+
+    logger.info("Downloading %s from yfinance...", ticker)
+    t = yf.Ticker(ticker)
+    hist = t.history(start=start_date, end=end_date, auto_adjust=False)
+    if hist.empty:
+        logger.warning("No data returned for %s", ticker)
+        return pd.DataFrame(columns=["Date", "Benchmark_Return"])
+
+    bench = pd.DataFrame({
+        "Date": hist.index.tz_localize(None),
+        "Close": hist["Close"].values,
+    })
+    bench = bench.sort_values("Date").reset_index(drop=True)
+    bench["Benchmark_Return"] = bench["Close"].pct_change()
+    bench = bench[["Date", "Benchmark_Return"]].dropna()
+
+    bench.to_csv(cache_path, index=False)
+    logger.info("Cached %s data (%d rows) to %s", ticker, len(bench), cache_path)
+    return bench
+
+
+def add_market_benchmark(df: pd.DataFrame, return_col: str,
+                         benchmark: str = "SPY",
+                         freq: str = "D") -> pd.DataFrame:
+    """Compute Excess_Return using market index or peer average.
+
+    Parameters:
+        benchmark: "SPY", "QQQ", or "peer_avg"
+        freq: frequency code for aggregation of benchmark returns
+    """
+    if benchmark == "peer_avg":
+        return add_peer_benchmark(df, return_col)
+
+    start_date = df["Date"].min().strftime("%Y-%m-%d")
+    end_date = (df["Date"].max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    bench = load_market_benchmark(benchmark, start_date, end_date)
+
+    if bench.empty:
+        logger.warning("No benchmark data for %s, falling back to peer average", benchmark)
+        return add_peer_benchmark(df, return_col)
+
+    df = df.copy()
+
+    if freq != "D":
+        # Aggregate benchmark returns to match data frequency
+        bench = bench.set_index("Date")
+        bench = bench.resample(freq).agg(
+            Benchmark_Return=("Benchmark_Return", lambda x: (1 + x).prod() - 1),
+        ).dropna().reset_index()
+
+    df = df.merge(bench[["Date", "Benchmark_Return"]], on="Date", how="left")
+    df["Excess_Return"] = df[return_col] - df["Benchmark_Return"]
+    return df
+
+
 def get_prepared_data_with_peers(freq: str = "D",
-                                  zscore_type: str = "full") -> pd.DataFrame:
+                                  zscore_type: str = "full",
+                                  benchmark: str = "SPY") -> pd.DataFrame:
     """
     Main entry point for combined ARK + peer data.
     Load → returns → aggregate → benchmark → z-score.
+
+    Parameters:
+        benchmark: "SPY", "QQQ", or "peer_avg"
     """
     df = load_all_etfs_with_peers()
     df = add_returns(df)
@@ -219,7 +294,7 @@ def get_prepared_data_with_peers(freq: str = "D",
         return_col = "Return"
 
     df = add_source_flag(df)
-    df = add_peer_benchmark(df, return_col)
+    df = add_market_benchmark(df, return_col, benchmark=benchmark, freq=freq)
 
     if zscore_type == "full":
         df = add_zscore_columns(df, flow_col=flow_col, return_col=return_col)
