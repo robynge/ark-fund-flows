@@ -35,10 +35,10 @@ with st.sidebar:
     selected_etf = st.selectbox("Per-ETF View", ALL_ETF_NAMES, index=0)
 
     st.markdown("---")
-    st.caption("35 ETFs: 9 ARK + 26 peers")
+    st.caption("38 ETFs: 9 ARK + 29 tech peers")
 
 
-@st.cache_data(show_spinner="Loading 35 ETFs...")
+@st.cache_data(show_spinner="Loading 38 ETFs...")
 def load_peer_data(freq):
     return get_prepared_data_with_peers(freq=freq, zscore_type="full")
 
@@ -67,9 +67,17 @@ st.caption(f"ETFs with sufficient flow data: {n_valid} ({n_ark} ARK + {n_peer} p
 # ============================================================
 st.header("1. Relative Performance: Absolute vs Excess Returns")
 st.markdown("""
-Do investors respond to **absolute** returns or **peer-relative** (excess) returns?
-Benchmark = cross-sectional mean return of all 35 ETFs each period.
+**What we're testing:** When investors decide to buy/sell an ETF, do they look at the fund's
+own return ("it went up 10%") or how it performed *relative to peers* ("it beat the group average by 5%")?
+
+We run three regressions for each ETF — predicting fund flows using lagged returns:
+- **R² Absolute** — only uses the ETF's own return → how much of flow variation is explained by "did it go up or down?"
+- **R² Excess** — only uses return minus the peer-group average → how much is explained by "did it beat peers?"
+- **R² Combined** — uses both together → which matters more when we include both?
+
+If R² Excess > R² Absolute, investors care more about **relative ranking** than raw performance.
 """)
+
 
 with st.spinner("Running relative performance regressions..."):
     rp_summary = relative_performance_all_etfs(df_valid, fc, rc, exc_col, lags)
@@ -148,9 +156,15 @@ else:
 st.markdown("---")
 st.header("2. Asymmetric Flow Response")
 st.markdown("""
-Do investors react more strongly to **positive** returns (performance chasing)
-or **negative** returns (panic selling)?
-Asymmetry ratio > 1 means stronger response to gains.
+**What we're testing:** When a fund goes up 10%, does the same amount of money flow in
+as flows out when it drops 10%? Or is the reaction lopsided?
+
+We split past returns into a **positive part** (gains) and **negative part** (losses), and estimate
+a separate coefficient for each:
+- **β_pos** — how much money flows in per unit of positive return (chasing gains)
+- **β_neg** — how much money flows out per unit of negative return (fleeing losses)
+- **Asymmetry Ratio** = β_pos / |β_neg| — values > 1 mean investors chase gains more aggressively than they flee losses
+- **Wald P** — p-value testing whether the two responses are statistically different (< 0.05 = significantly asymmetric)
 """)
 
 with st.spinner("Running asymmetry regressions..."):
@@ -234,8 +248,19 @@ else:
 st.markdown("---")
 st.header("3. Panel Regression (All ETFs)")
 st.markdown("""
-Fixed-effects panel regression across all ETFs with fund flow data.
-Entity effects capture ETF-specific intercepts; clustered SEs account for within-ETF correlation.
+**What we're doing:** Instead of running separate regressions per ETF, we stack all ETFs together
+into one big regression. This gives us much more statistical power and lets us answer:
+"Across the entire universe of tech ETFs, do past returns predict future flows?"
+
+Five model specifications, from simplest to most controlled:
+- **Pooled OLS** — treats all observations the same, ignoring ETF identity
+- **Entity FE** — adds a "fixed effect" per ETF (controls for the fact that XLK naturally attracts more money than a niche fund)
+- **Entity+Time FE** — also controls for market-wide time trends (e.g., everyone pulled money in March 2020)
+- **Entity FE + Excess** — adds excess return (relative performance) alongside absolute return
+- **Entity FE + Controls** — adds rolling volatility as a control variable
+
+The **Entity Fixed Effects chart** shows each ETF's baseline flow level (α_i) after controlling for returns —
+positive = this fund attracts more money than average, negative = less.
 """)
 
 # Only use ETFs with both flows and excess returns for panel
