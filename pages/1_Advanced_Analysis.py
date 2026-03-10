@@ -128,11 +128,13 @@ if len(rp_summary) > 0:
                     x=r2_abs["lag"], y=r2_abs["r_squared"],
                     name="Absolute Return", mode="lines+markers",
                     line=dict(color="#1f77b4", width=2),
+                    hovertemplate="Lag: %{x}<br>Absolute Return R²: %{y:.2f}<extra></extra>",
                 ))
                 fig_lag.add_trace(go.Scatter(
                     x=r2_exc["lag"], y=r2_exc["r_squared"],
                     name="Excess Return", mode="lines+markers",
                     line=dict(color="#ff7f0e", width=2),
+                    hovertemplate="Lag: %{x}<br>Excess Return R²: %{y:.2f}<extra></extra>",
                 ))
                 # Mark peak lags
                 abs_peak = r2_abs.loc[r2_abs["r_squared"].idxmax()]
