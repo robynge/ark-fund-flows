@@ -1,7 +1,10 @@
 """Data loading, feature engineering, and normalization for ARK ETF fund flows."""
+import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 EXCEL_PATH = Path(__file__).parent.parent / "ARK ETF Fund Flows.xlsx"
 PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
@@ -149,21 +152,29 @@ def get_prepared_data(freq: str = "D", zscore_type: str = "full") -> pd.DataFram
 
 
 def load_peer_etfs() -> pd.DataFrame:
-    """Load all 26 peer ETF sheets from the peer Excel file."""
+    """Load all peer ETF sheets from the peer Excel file."""
+    if not PEER_EXCEL_PATH.exists():
+        logger.warning("Peer file not found: %s", PEER_EXCEL_PATH)
+        return pd.DataFrame()
     frames = []
     for name in PEER_ETF_NAMES:
         try:
             frames.append(_load_single_etf_from_file(PEER_EXCEL_PATH, name))
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to load peer ETF %s: %s", name, e)
             continue
+    if not frames:
+        logger.warning("No peer ETFs loaded from %s", PEER_EXCEL_PATH)
+        return pd.DataFrame()
     return pd.concat(frames, ignore_index=True)
 
 
 def load_all_etfs_with_peers() -> pd.DataFrame:
-    """Load all 9 ARK + 26 peer = 35 ETFs."""
+    """Load all 9 ARK + 29 tech peer ETFs."""
     ark = load_all_etfs()
     peers = load_peer_etfs()
-    return pd.concat([ark, peers], ignore_index=True)
+    parts = [df for df in [ark, peers] if len(df) > 0]
+    return pd.concat(parts, ignore_index=True)
 
 
 def add_source_flag(df: pd.DataFrame) -> pd.DataFrame:
