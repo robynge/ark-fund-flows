@@ -12,7 +12,7 @@ from data_loader import (
     get_prepared_data_with_peers, ETF_NAMES, PEER_ETF_NAMES, ALL_ETF_NAMES,
 )
 from analysis import (
-    _auto_lags,
+    _auto_lags, r_squared_by_lag,
     relative_performance_regression, relative_performance_all_etfs,
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
@@ -112,7 +112,59 @@ if len(rp_summary) > 0:
     with st.expander(f"Per-ETF Detail: {selected_etf}"):
         etf_df = df_valid[df_valid["ETF"] == selected_etf]
         if not etf_df[exc_col].dropna().empty:
-            etf_lags = _auto_lags(len(etf_df[fc].dropna()))
+            # R² by lag profile: absolute vs excess
+            n_obs = len(etf_df[fc].dropna())
+            max_lag_profile = max(1, min(n_obs // 2, 24))
+            lag_range = range(1, max_lag_profile + 1)
+
+            r2_abs = r_squared_by_lag(etf_df, fc, rc, lag_range)
+            r2_exc = r_squared_by_lag(etf_df, fc, exc_col, lag_range)
+
+            if len(r2_abs) > 0 and len(r2_exc) > 0:
+                freq_label = {"D": "days", "W": "weeks", "ME": "months",
+                              "QE": "quarters"}[freq]
+                fig_lag = go.Figure()
+                fig_lag.add_trace(go.Scatter(
+                    x=r2_abs["lag"], y=r2_abs["r_squared"],
+                    name="Absolute Return", mode="lines+markers",
+                    line=dict(color="#1f77b4", width=2),
+                ))
+                fig_lag.add_trace(go.Scatter(
+                    x=r2_exc["lag"], y=r2_exc["r_squared"],
+                    name="Excess Return", mode="lines+markers",
+                    line=dict(color="#ff7f0e", width=2),
+                ))
+                # Mark peak lags
+                abs_peak = r2_abs.loc[r2_abs["r_squared"].idxmax()]
+                exc_peak = r2_exc.loc[r2_exc["r_squared"].idxmax()]
+                fig_lag.add_annotation(
+                    x=abs_peak["lag"], y=abs_peak["r_squared"],
+                    text=f"peak lag {int(abs_peak['lag'])}",
+                    showarrow=True, arrowhead=2, font=dict(color="#1f77b4"),
+                )
+                fig_lag.add_annotation(
+                    x=exc_peak["lag"], y=exc_peak["r_squared"],
+                    text=f"peak lag {int(exc_peak['lag'])}",
+                    showarrow=True, arrowhead=2, font=dict(color="#ff7f0e"),
+                )
+                fig_lag.update_layout(
+                    height=400,
+                    title=f"{selected_etf}: R² by Lag — Absolute vs Excess Return",
+                    xaxis_title=f"Lag ({freq_label})",
+                    yaxis_title="R² (single-lag simple regression)",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    hovermode="x unified",
+                )
+                st.plotly_chart(fig_lag, width="stretch")
+
+                st.caption(
+                    f"Each point = R² from a simple regression Flow(t) ~ Return(t-k) "
+                    f"using one lag at a time. Shows how far back the effect extends "
+                    f"and at which lag it peaks."
+                )
+
+            # Regression tables
+            etf_lags = _auto_lags(n_obs)
             rp_detail = relative_performance_regression(
                 etf_df, fc, rc, exc_col, etf_lags)
             if rp_detail:
@@ -130,18 +182,6 @@ if len(rp_summary) > 0:
                             .style.format({"Coefficient": "{:.4f}", "p_value": "{:.4f}"}),
                             hide_index=True, width="stretch",
                         )
-
-                # Scatter: excess return vs flow
-                scatter_df = etf_df.dropna(subset=[fc, exc_col])
-                if len(scatter_df) > 10:
-                    fig_sc = px.scatter(
-                        scatter_df, x=exc_col, y=fc,
-                        trendline="ols", opacity=0.5,
-                        title=f"{selected_etf}: Excess Return vs Flow",
-                        labels={exc_col: "Excess Return", fc: "Flow ($M)"},
-                    )
-                    fig_sc.update_layout(height=350)
-                    st.plotly_chart(fig_sc, width="stretch")
         else:
             st.info(f"No excess return data for {selected_etf}.")
 else:
