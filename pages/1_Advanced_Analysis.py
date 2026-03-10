@@ -40,6 +40,21 @@ with st.sidebar:
 
 @st.cache_data(show_spinner="Loading 38 ETFs...")
 def load_peer_data(freq):
+    from data_loader import PEER_EXCEL_PATH, EXCEL_PATH
+    import os
+    # Debug: show file existence on Streamlit Cloud
+    project_root = Path(__file__).parent.parent
+    files = os.listdir(project_root)
+    xlsx_files = [f for f in files if f.endswith(".xlsx")]
+    if not PEER_EXCEL_PATH.exists():
+        raise FileNotFoundError(
+            f"Peer Fund Flows.xlsx not found.\n"
+            f"  PEER_EXCEL_PATH={PEER_EXCEL_PATH}\n"
+            f"  EXCEL_PATH exists={EXCEL_PATH.exists()}\n"
+            f"  Project root: {project_root}\n"
+            f"  .xlsx files in root: {xlsx_files}\n"
+            f"  All files: {files}"
+        )
     return get_prepared_data_with_peers(freq=freq, zscore_type="full")
 
 
