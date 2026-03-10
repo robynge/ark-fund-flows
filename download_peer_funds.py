@@ -1,6 +1,6 @@
 """
 Download OHLCV data for tech peer ETFs from yfinance, merge with
-Bloomberg fund flow data from 'tech peers.xlsx'.
+Bloomberg fund flow data from 'Tech Peers.xlsx'.
 
 Saves to 'Peer Fund Flows.xlsx' with one sheet per ETF,
 matching the format of 'ARK ETF Fund Flows.xlsx':
@@ -13,7 +13,7 @@ import yfinance as yf
 from pathlib import Path
 import time
 
-TECH_PEERS_PATH = Path(__file__).parent / "tech peers.xlsx"
+TECH_PEERS_PATH = Path(__file__).parent / "Tech Peers.xlsx"
 OUTPUT_PATH = Path(__file__).parent / "Peer Fund Flows.xlsx"
 ARK_TICKERS = {"ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"}
 
