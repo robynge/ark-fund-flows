@@ -12,6 +12,7 @@ from data_loader import (
     get_prepared_data_with_peers, ETF_NAMES, PEER_ETF_NAMES, ALL_ETF_NAMES,
 )
 from analysis import (
+    _auto_lags,
     relative_performance_regression, relative_performance_all_etfs,
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
@@ -27,11 +28,6 @@ with st.sidebar:
         format_func={"D": "Daily", "W": "Weekly", "ME": "Monthly", "QE": "Quarterly"}.get,
         index=2,
     )
-    lag_opts = {"D": [1, 5, 21], "W": [1, 4, 13], "ME": [1, 3, 6], "QE": [1, 2]}
-    max_lag_default = {"D": 5, "W": 4, "ME": 3, "QE": 2}[freq]
-    max_lag = st.slider("Max Lag", 1, 12, max_lag_default)
-    lags = list(range(1, max_lag + 1))
-
     selected_etf = st.selectbox("Per-ETF View", ALL_ETF_NAMES, index=0)
 
     st.markdown("---")
@@ -80,7 +76,7 @@ If R² Excess > R² Absolute, investors care more about **relative ranking** tha
 
 
 with st.spinner("Running relative performance regressions..."):
-    rp_summary = relative_performance_all_etfs(df_valid, fc, rc, exc_col, lags)
+    rp_summary = relative_performance_all_etfs(df_valid, fc, rc, exc_col)
 
 if len(rp_summary) > 0:
     # Add source flag
@@ -116,8 +112,9 @@ if len(rp_summary) > 0:
     with st.expander(f"Per-ETF Detail: {selected_etf}"):
         etf_df = df_valid[df_valid["ETF"] == selected_etf]
         if not etf_df[exc_col].dropna().empty:
+            etf_lags = _auto_lags(len(etf_df[fc].dropna()))
             rp_detail = relative_performance_regression(
-                etf_df, fc, rc, exc_col, lags)
+                etf_df, fc, rc, exc_col, etf_lags)
             if rp_detail:
                 cols = st.columns(3)
                 for i, (name, label) in enumerate([
@@ -168,7 +165,7 @@ a separate coefficient for each:
 """)
 
 with st.spinner("Running asymmetry regressions..."):
-    asym_summary = asymmetry_all_etfs(df_valid, fc, rc, lags)
+    asym_summary = asymmetry_all_etfs(df_valid, fc, rc)
 
 if len(asym_summary) > 0:
     asym_summary["Source"] = asym_summary["ETF"].apply(
@@ -210,7 +207,8 @@ if len(asym_summary) > 0:
     # Per-ETF coefficient plot
     with st.expander(f"Per-ETF Detail: {selected_etf}"):
         etf_df = df_valid[df_valid["ETF"] == selected_etf]
-        asym_detail = asymmetry_regression(etf_df, fc, rc, lags)
+        etf_lags = _auto_lags(len(etf_df[fc].dropna()))
+        asym_detail = asymmetry_regression(etf_df, fc, rc, etf_lags)
         if asym_detail:
             coef = asym_detail["coefficients"]
             coef = coef[coef["Variable"] != "const"].copy()
@@ -269,7 +267,7 @@ panel_df = df_valid.dropna(subset=[fc, rc])
 with st.spinner("Running panel regressions (5 specifications)..."):
     try:
         panel_comp = panel_regression_comparison(
-            panel_df, fc, rc, excess_return_col=exc_col, lags=lags)
+            panel_df, fc, rc, excess_return_col=exc_col)
 
         if len(panel_comp) > 0:
             # Model comparison table
@@ -288,8 +286,11 @@ with st.spinner("Running panel regressions (5 specifications)..."):
 
             # Entity fixed effects
             st.subheader("Entity Fixed Effects")
+            min_n = panel_df.groupby("ETF")[fc].apply(
+                lambda x: x.notna().sum()).min()
+            panel_lags = _auto_lags(min_n)
             fe_result = panel_regression(
-                panel_df, fc, rc, lags=lags,
+                panel_df, fc, rc, lags=panel_lags,
                 entity_effects=True, time_effects=False)
             if fe_result and "entity_effects" in fe_result:
                 fe_df = fe_result["entity_effects"].sort_values("Fixed_Effect")

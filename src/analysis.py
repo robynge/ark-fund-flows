@@ -239,6 +239,16 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
     return pd.DataFrame(results)
 
 
+def _auto_lags(n_obs: int, max_ratio: float = 0.2, cap: int = 12) -> list[int]:
+    """Compute lag range automatically from data length.
+
+    Uses up to max_ratio * n_obs lags, capped at `cap`.
+    Always returns at least [1].
+    """
+    max_lag = max(1, min(int(n_obs * max_ratio), cap))
+    return list(range(1, max_lag + 1))
+
+
 # ============================================================
 # Relative Performance Analysis
 # ============================================================
@@ -292,14 +302,17 @@ def relative_performance_regression(df: pd.DataFrame, flow_col: str,
 
 
 def relative_performance_all_etfs(df: pd.DataFrame, flow_col: str,
-                                   return_col: str, excess_return_col: str,
-                                   lags: list[int]) -> pd.DataFrame:
-    """Summary table: ETF, R²_Absolute, R²_Excess, R²_Combined, N."""
+                                   return_col: str,
+                                   excess_return_col: str) -> pd.DataFrame:
+    """Summary table: ETF, R²_Absolute, R²_Excess, R²_Combined, N.
+    Lags are computed automatically per ETF based on data length."""
     rows = []
     for etf in df["ETF"].unique():
         etf_df = df[df["ETF"] == etf]
         if etf_df[excess_return_col].dropna().empty:
             continue
+        n = len(etf_df[flow_col].dropna())
+        lags = _auto_lags(n)
         result = relative_performance_regression(
             etf_df, flow_col, return_col, excess_return_col, lags)
         if result is None:
@@ -393,12 +406,15 @@ def asymmetry_regression(df: pd.DataFrame, flow_col: str, return_col: str,
     }
 
 
-def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str, return_col: str,
-                        lags: list[int]) -> pd.DataFrame:
-    """Summary table: ETF, Beta_Pos, Beta_Neg, Asymmetry_Ratio, Wald_P, R², N."""
+def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str,
+                        return_col: str) -> pd.DataFrame:
+    """Summary table: ETF, Beta_Pos, Beta_Neg, Asymmetry_Ratio, Wald_P, R², N.
+    Lags are computed automatically per ETF based on data length."""
     rows = []
     for etf in df["ETF"].unique():
         etf_df = df[df["ETF"] == etf]
+        n = len(etf_df[flow_col].dropna())
+        lags = _auto_lags(n)
         result = asymmetry_regression(etf_df, flow_col, return_col, lags)
         if result is None:
             continue
@@ -515,16 +531,14 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def panel_regression_comparison(df: pd.DataFrame, flow_col: str,
                                  return_col: str,
-                                 excess_return_col: str | None = None,
-                                 lags: list[int] = [1]) -> pd.DataFrame:
+                                 excess_return_col: str | None = None) -> pd.DataFrame:
     """
-    Run 5 panel specifications side by side:
-    1. Pooled OLS
-    2. Entity FE
-    3. Entity + Time FE
-    4. Entity FE with excess return
-    5. Entity FE with controls
+    Run 5 panel specifications side by side.
+    Lags are computed automatically from the shortest ETF's data length.
     """
+    min_n = df.groupby("ETF")[flow_col].apply(lambda x: x.notna().sum()).min()
+    lags = _auto_lags(min_n)
+
     specs = [
         ("Pooled OLS", dict(entity_effects=False, time_effects=False,
                             excess_return_col=None, add_controls=False)),
