@@ -1,32 +1,44 @@
 """
-Download OHLCV data for peer fund ETFs from yfinance.
-Saves to 'Peer Fund Flows.xlsx' with one sheet per ETF,
-matching the format of 'ARK ETF Fund Flows.xlsx'.
+Download OHLCV data for tech peer ETFs from yfinance, merge with
+Bloomberg fund flow data from 'tech peers.xlsx'.
 
-Fund Flow column is left as NaN (yfinance doesn't provide it).
+Saves to 'Peer Fund Flows.xlsx' with one sheet per ETF,
+matching the format of 'ARK ETF Fund Flows.xlsx':
+  Date | Fund Flow | Open | High | Low | Close | Volume
+
 Skips tickers that already have data in the output file.
 """
 import pandas as pd
 import yfinance as yf
 from pathlib import Path
 import time
-import sys
 
-PEER_FUNDS_PATH = Path(__file__).parent / "peer funds.xlsx"
+TECH_PEERS_PATH = Path(__file__).parent / "tech peers.xlsx"
 OUTPUT_PATH = Path(__file__).parent / "Peer Fund Flows.xlsx"
 ARK_TICKERS = {"ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"}
 
-# Columns to match ARK format: Date, Fund Flow, Open, High, Low, Close, Volume
-OUTPUT_COLUMNS = ["Date", "Fund Flow", "Open", "High", "Low", "Close", "Volume"]
 
+def read_peer_tickers_and_flows() -> tuple[list[str], dict[str, pd.Series]]:
+    """Read ticker list and fund flow data from tech peers Excel.
 
-def read_peer_tickers() -> list[str]:
-    """Read ticker list from peer funds Excel."""
-    df = pd.read_excel(PEER_FUNDS_PATH, sheet_name="Sheet3", header=None)
-    tickers = [t.replace(" US Equity", "").strip() for t in df[0].tolist()]
-    # Exclude ARK tickers (we already have their data)
-    tickers = [t for t in tickers if t not in ARK_TICKERS]
-    return tickers
+    Returns:
+        tickers: list of peer ticker strings (excluding ARK)
+        flows: dict mapping ticker -> Series(index=Date, values=fund_flow)
+    """
+    df = pd.read_excel(TECH_PEERS_PATH, sheet_name="Sheet1")
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.set_index("Date").sort_index()
+
+    tickers = []
+    flows = {}
+    for col in df.columns:
+        ticker = col.replace(" US Equity", "").strip()
+        if ticker in ARK_TICKERS:
+            continue
+        tickers.append(ticker)
+        flows[ticker] = df[col]
+
+    return tickers, flows
 
 
 def load_existing_data() -> dict[str, pd.DataFrame]:
@@ -42,8 +54,8 @@ def load_existing_data() -> dict[str, pd.DataFrame]:
     return existing
 
 
-def download_etf(ticker: str) -> pd.DataFrame | None:
-    """Download full history OHLCV for one ETF from yfinance."""
+def download_etf(ticker: str, flow_series: pd.Series) -> pd.DataFrame | None:
+    """Download OHLCV from yfinance and merge with Bloomberg fund flows."""
     try:
         t = yf.Ticker(ticker)
         hist = t.history(period="max", auto_adjust=False)
@@ -52,10 +64,9 @@ def download_etf(ticker: str) -> pd.DataFrame | None:
             print(f"  {ticker}: no data or too few rows ({len(hist)})")
             return None
 
-        # Build output DataFrame matching ARK format
-        df = pd.DataFrame({
-            "Date": hist.index.tz_localize(None),  # remove timezone
-            "Fund Flow": float("nan"),
+        # Build OHLCV DataFrame
+        ohlcv = pd.DataFrame({
+            "Date": hist.index.tz_localize(None),
             "Open": hist["Open"].values,
             "High": hist["High"].values,
             "Low": hist["Low"].values,
@@ -63,9 +74,17 @@ def download_etf(ticker: str) -> pd.DataFrame | None:
             "Volume": hist["Volume"].values,
         })
 
+        # Merge with Bloomberg fund flows
+        flow_df = flow_series.dropna().reset_index()
+        flow_df.columns = ["Date", "Fund Flow"]
+        flow_df["Date"] = pd.to_datetime(flow_df["Date"])
+
+        merged = ohlcv.merge(flow_df, on="Date", how="left")
+        # Reorder columns to match ARK format
+        merged = merged[["Date", "Fund Flow", "Open", "High", "Low", "Close", "Volume"]]
         # Sort descending by date (matching ARK format)
-        df = df.sort_values("Date", ascending=False).reset_index(drop=True)
-        return df
+        merged = merged.sort_values("Date", ascending=False).reset_index(drop=True)
+        return merged
 
     except Exception as e:
         print(f"  {ticker}: ERROR - {e}")
@@ -73,8 +92,8 @@ def download_etf(ticker: str) -> pd.DataFrame | None:
 
 
 def main():
-    tickers = read_peer_tickers()
-    print(f"Peer tickers to download: {len(tickers)}")
+    tickers, flows = read_peer_tickers_and_flows()
+    print(f"Tech peer tickers: {len(tickers)}")
     print(f"  {', '.join(tickers)}")
 
     # Load existing data to avoid re-downloading
@@ -98,25 +117,24 @@ def main():
     new_data = {}
     for i, ticker in enumerate(to_download, 1):
         print(f"[{i}/{len(to_download)}] {ticker}...", end=" ")
-        df = download_etf(ticker)
+        df = download_etf(ticker, flows[ticker])
         if df is not None:
             new_data[ticker] = df
-            print(f"OK - {len(df)} rows, {df['Date'].min().date()} to {df['Date'].max().date()}")
-        # Small delay to be nice to Yahoo
+            n_flows = df["Fund Flow"].notna().sum()
+            print(f"OK - {len(df)} rows, {n_flows} flow obs, "
+                  f"{df['Date'].min().date()} to {df['Date'].max().date()}")
         if i < len(to_download):
             time.sleep(0.5)
 
     # Merge existing + new data
     all_data = {**existing, **new_data}
 
-    # Write to Excel (one sheet per ETF, in ticker order)
     if not all_data:
         print("\nNo data downloaded. Check ticker validity.")
         return
 
-    # Sort sheets: tickers in the order they appear in the peer funds list
+    # Sort sheets in ticker order
     ordered_sheets = [t for t in tickers if t in all_data]
-    # Add any extras from existing that might not be in current ticker list
     for t in all_data:
         if t not in ordered_sheets:
             ordered_sheets.append(t)
@@ -129,14 +147,14 @@ def main():
     print("Done!")
 
     # Summary
-    print(f"\n{'='*50}")
-    print(f"{'Ticker':<8} {'Rows':>6}  {'Start':>12}  {'End':>12}")
-    print(f"{'-'*50}")
+    print(f"\n{'='*60}")
+    print(f"{'Ticker':<8} {'Rows':>6}  {'Flows':>6}  {'Start':>12}  {'End':>12}")
+    print(f"{'-'*60}")
     for ticker in ordered_sheets:
         df = all_data[ticker]
-        start = df["Date"].min()
-        end = df["Date"].max()
-        print(f"{ticker:<8} {len(df):>6}  {start.date()!s:>12}  {end.date()!s:>12}")
+        n_flows = df["Fund Flow"].notna().sum()
+        print(f"{ticker:<8} {len(df):>6}  {n_flows:>6}  "
+              f"{df['Date'].min().date()!s:>12}  {df['Date'].max().date()!s:>12}")
 
 
 if __name__ == "__main__":

@@ -8,9 +8,10 @@ PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
 
 ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
 PEER_ETF_NAMES = [
-    "AIQ", "ARTY", "BITQ", "BKGI", "BLOK", "BOTZ", "BUG", "CCNR", "CGW",
-    "DSI", "DTCR", "EUAD", "FPX", "GII", "GNR", "GRID", "GRNY", "GUNR",
-    "HAPI", "IFRA", "IGE", "IGF", "JUST", "KOMP", "LIT", "MOO",
+    "FTXL", "PSI", "SMH", "SOXX", "PTF", "XSD", "PSCT", "IGPT", "KNCT",
+    "IXN", "IGM", "IYW", "XLK", "FTEC", "VGT", "TDIV", "QTEC", "FID",
+    "FXL", "ERTH", "XT", "GAMR", "CQQQ", "FDN", "HACK", "PNQI", "SKYY",
+    "CIBR", "SOCL",
 ]
 ALL_ETF_NAMES = ETF_NAMES + PEER_ETF_NAMES
 
