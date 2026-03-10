@@ -42,6 +42,47 @@ section's question, building a complete research narrative.
 # --- Sidebar ---
 BENCHMARK_OPTIONS = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}
 
+ETF_FULL_NAMES = {
+    "ARKK": "ARK Innovation",
+    "ARKF": "ARK Fintech Innovation",
+    "ARKG": "ARK Genomic Revolution",
+    "ARKX": "ARK Space & Defense Innovation",
+    "ARKB": "ARK 21Shares Bitcoin",
+    "ARKQ": "ARK Autonomous Tech & Robotics",
+    "ARKW": "ARK Next Generation Internet",
+    "PRNT": "The 3D Printing ETF",
+    "IZRL": "ARK Israel Innovative Technology",
+    "FTXL": "First Trust Nasdaq Semiconductor",
+    "PSI":  "Invesco Semiconductors",
+    "SMH":  "VanEck Semiconductor",
+    "SOXX": "iShares Semiconductor",
+    "PTF":  "Invesco DW Tech Momentum",
+    "XSD":  "SPDR S&P Semiconductor",
+    "PSCT": "Invesco S&P SmallCap IT",
+    "IGPT": "Invesco AI & Next Gen Software",
+    "KNCT": "Invesco Next Gen Connectivity",
+    "IXN":  "iShares Global Tech",
+    "IGM":  "iShares Expanded Tech Sector",
+    "IYW":  "iShares U.S. Technology",
+    "XLK":  "Technology Select Sector SPDR",
+    "FTEC": "Fidelity MSCI IT Index",
+    "VGT":  "Vanguard Information Technology",
+    "TDIV": "First Trust NASDAQ Tech Dividend",
+    "QTEC": "First Trust NASDAQ-100 Tech",
+    "FID":  "First Trust S&P Intl Dividend",
+    "FXL":  "First Trust Tech AlphaDEX",
+    "ERTH": "Invesco MSCI Sustainable Future",
+    "XT":   "iShares Exponential Technologies",
+    "GAMR": "Amplify Video Game Tech",
+    "CQQQ": "Invesco China Technology",
+    "FDN":  "First Trust DJ Internet Index",
+    "HACK": "Amplify Cybersecurity",
+    "PNQI": "Invesco NASDAQ Internet",
+    "SKYY": "First Trust Cloud Computing",
+    "CIBR": "First Trust NASDAQ Cybersecurity",
+    "SOCL": "Global X Social Media",
+}
+
 with st.sidebar:
     freq = st.selectbox(
         "Frequency", ["D", "W", "ME", "QE"],
@@ -50,7 +91,10 @@ with st.sidebar:
     )
     benchmark_label = st.selectbox("Benchmark", list(BENCHMARK_OPTIONS.keys()))
     benchmark = BENCHMARK_OPTIONS[benchmark_label]
-    selected_etf = st.selectbox("Per-ETF View", ALL_ETF_NAMES, index=0)
+    selected_etf = st.selectbox(
+        "Per-ETF View", ALL_ETF_NAMES, index=0,
+        format_func=lambda x: f"{x} — {ETF_FULL_NAMES.get(x, x)}",
+    )
     st.markdown("---")
     st.caption("38 ETFs: 9 ARK + 29 tech peers")
 
