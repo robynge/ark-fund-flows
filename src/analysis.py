@@ -506,7 +506,7 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         effects = model.estimated_effects.copy()
         effects = effects.reset_index()
         effects.columns = ["ETF", "Date", "Effect"]
-        entity_avg = effects.groupby("ETF")["Effect"].mean().reset_index()
+        entity_avg = effects.groupby("ETF", observed=True)["Effect"].mean().reset_index()
         entity_avg.columns = ["ETF", "Fixed_Effect"]
         result["entity_effects"] = entity_avg
 

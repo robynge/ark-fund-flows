@@ -40,21 +40,6 @@ with st.sidebar:
 
 @st.cache_data(show_spinner="Loading 38 ETFs...")
 def load_peer_data(freq):
-    from data_loader import PEER_EXCEL_PATH, EXCEL_PATH
-    import os
-    # Debug: show file existence on Streamlit Cloud
-    project_root = Path(__file__).parent.parent
-    files = os.listdir(project_root)
-    xlsx_files = [f for f in files if f.endswith(".xlsx")]
-    if not PEER_EXCEL_PATH.exists():
-        raise FileNotFoundError(
-            f"Peer Fund Flows.xlsx not found.\n"
-            f"  PEER_EXCEL_PATH={PEER_EXCEL_PATH}\n"
-            f"  EXCEL_PATH exists={EXCEL_PATH.exists()}\n"
-            f"  Project root: {project_root}\n"
-            f"  .xlsx files in root: {xlsx_files}\n"
-            f"  All files: {files}"
-        )
     return get_prepared_data_with_peers(freq=freq, zscore_type="full")
 
 
@@ -116,7 +101,7 @@ if len(rp_summary) > 0:
     )
     fig_rp.update_layout(height=450, xaxis_tickangle=-45,
                          legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig_rp, use_container_width=True)
+    st.plotly_chart(fig_rp, width="stretch")
 
     # Summary table
     st.dataframe(
@@ -124,7 +109,7 @@ if len(rp_summary) > 0:
         .sort_values("R²_Combined", ascending=False)
         .style.format({"R²_Absolute": "{:.4f}", "R²_Excess": "{:.4f}",
                         "R²_Combined": "{:.4f}"}),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
     # Per-ETF detail
@@ -146,7 +131,7 @@ if len(rp_summary) > 0:
                             rp_detail[name]["coefficients"]
                             [["Variable", "Coefficient", "p_value"]]
                             .style.format({"Coefficient": "{:.4f}", "p_value": "{:.4f}"}),
-                            hide_index=True, use_container_width=True,
+                            hide_index=True, width="stretch",
                         )
 
                 # Scatter: excess return vs flow
@@ -159,7 +144,7 @@ if len(rp_summary) > 0:
                         labels={exc_col: "Excess Return", fc: "Flow ($M)"},
                     )
                     fig_sc.update_layout(height=350)
-                    st.plotly_chart(fig_sc, use_container_width=True)
+                    st.plotly_chart(fig_sc, width="stretch")
         else:
             st.info(f"No excess return data for {selected_etf}.")
 else:
@@ -207,7 +192,7 @@ if len(asym_summary) > 0:
         xaxis_tickangle=-45, yaxis_title="Coefficient Magnitude",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
-    st.plotly_chart(fig_asym, use_container_width=True)
+    st.plotly_chart(fig_asym, width="stretch")
 
     # Summary table
     display_cols = ["ETF", "Source", "Beta_Pos", "Beta_Neg",
@@ -219,7 +204,7 @@ if len(asym_summary) > 0:
             "Beta_Pos": "{:.2f}", "Beta_Neg": "{:.2f}",
             "Asymmetry_Ratio": "{:.2f}", "Wald_P": "{:.4f}", "R²": "{:.4f}",
         }),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
     # Per-ETF coefficient plot
@@ -228,7 +213,7 @@ if len(asym_summary) > 0:
         asym_detail = asymmetry_regression(etf_df, fc, rc, lags)
         if asym_detail:
             coef = asym_detail["coefficients"]
-            coef = coef[coef["Variable"] != "const"]
+            coef = coef[coef["Variable"] != "const"].copy()
             coef["CI_lower"] = coef["Coefficient"] - 1.96 * coef["Std_Error"]
             coef["CI_upper"] = coef["Coefficient"] + 1.96 * coef["Std_Error"]
             coef["Color"] = coef["Variable"].apply(
@@ -248,7 +233,7 @@ if len(asym_summary) > 0:
                 height=350, title=f"{selected_etf}: Asymmetric Coefficients with 95% CI",
                 yaxis_title="Coefficient",
             )
-            st.plotly_chart(fig_ci, use_container_width=True)
+            st.plotly_chart(fig_ci, width="stretch")
 
             c1, c2, c3 = st.columns(3)
             c1.metric("Asymmetry Ratio", f"{asym_detail['asymmetry_ratio']:.2f}")
@@ -298,7 +283,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                     fmt_dict[col] = "{:.4f}"
             st.dataframe(
                 panel_comp.style.format(fmt_dict, na_rep="—"),
-                hide_index=True, use_container_width=True,
+                hide_index=True, width="stretch",
             )
 
             # Entity fixed effects
@@ -325,7 +310,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                     yaxis_title="Fixed Effect (α_i)",
                     xaxis_tickangle=-45,
                 )
-                st.plotly_chart(fig_fe, use_container_width=True)
+                st.plotly_chart(fig_fe, width="stretch")
 
             # Data coverage heatmap
             st.subheader("Data Coverage")
@@ -341,7 +326,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                 labels=dict(color="Obs"),
             )
             fig_cov.update_layout(height=max(400, len(pivot) * 18))
-            st.plotly_chart(fig_cov, use_container_width=True)
+            st.plotly_chart(fig_cov, width="stretch")
         else:
             st.warning("Panel regression returned no results.")
 

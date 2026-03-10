@@ -77,7 +77,7 @@ fig1.update_layout(height=400, hovermode="x unified",
                    margin=dict(l=60, r=60, t=30, b=30))
 fig1.update_yaxes(title_text="Price ($)", secondary_y=False)
 fig1.update_yaxes(title_text="Cumulative Flow ($M)", secondary_y=True)
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, width="stretch")
 
 # ============================================================
 # 2. Normalized overlay
@@ -97,7 +97,7 @@ fig2.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
 fig2.update_layout(height=350, yaxis_title="Z-score", hovermode="x unified",
                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
                    margin=dict(l=60, r=40, t=30, b=30))
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2, width="stretch")
 
 # ============================================================
 # 3. Cross-Correlogram
@@ -132,7 +132,7 @@ if len(cc) > 0:
     fig3.add_hline(y=0, line_color="gray", opacity=0.4)
     fig3.update_layout(height=350, xaxis_title=f"Lag ({freq_label})", yaxis_title="Correlation",
                        margin=dict(l=60, r=40, t=20, b=30))
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
 # ============================================================
 # 4. Regression + Granger
@@ -155,7 +155,7 @@ with col_left:
         lag_coef = coef[coef["Variable"].str.contains("Return_lag")].copy()
         lag_coef["Sig"] = lag_coef["p_value"].apply(lambda p: "***" if p < 0.01 else ("**" if p < 0.05 else ("*" if p < 0.1 else "")))
         st.dataframe(lag_coef[["Variable", "Coefficient", "p_value", "Sig"]].style.format(
-            {"Coefficient": "{:.2f}", "p_value": "{:.4f}"}), hide_index=True, use_container_width=True)
+            {"Coefficient": "{:.2f}", "p_value": "{:.4f}"}), hide_index=True, width="stretch")
 
 with col_right:
     st.markdown("**Granger Causality**")
@@ -163,7 +163,7 @@ with col_right:
     if len(gc) > 0:
         gc["Sig"] = gc["p_value"].apply(lambda p: "✓" if p < 0.05 else "")
         st.dataframe(gc[["lag", "direction", "F_statistic", "p_value", "Sig"]].style.format(
-            {"F_statistic": "{:.2f}", "p_value": "{:.4f}"}), hide_index=True, use_container_width=True)
+            {"F_statistic": "{:.2f}", "p_value": "{:.4f}"}), hide_index=True, width="stretch")
 
 # ============================================================
 # 5. All ETFs comparison
@@ -185,7 +185,7 @@ for etf in ETF_NAMES:
 
 summary = pd.DataFrame(rows)
 st.dataframe(summary.style.format({"R²": "{:.4f}", "F_p": "{:.4f}"}),
-             hide_index=True, use_container_width=True)
+             hide_index=True, width="stretch")
 
 # ============================================================
 # 6. Seasonality
@@ -206,7 +206,7 @@ if len(seasonal) > 0:
     fig_s.update_layout(height=350, yaxis_title="Avg Daily Flow ($M)",
                         margin=dict(l=60, r=40, t=20, b=30))
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-    st.plotly_chart(fig_s, use_container_width=True)
+    st.plotly_chart(fig_s, width="stretch")
 
     # January t-test
     jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
