@@ -14,6 +14,7 @@ from analysis import cross_correlation, lag_regression, granger_causality_test, 
 
 st.set_page_config(page_title="ARK Fund Flows Analysis", layout="wide")
 st.title("ARK ETF: Fund Flows vs Stock Price")
+st.page_link("pages/1_Advanced_Analysis.py", label="→ Advanced Analysis (Relative Performance, Asymmetry, Panel)")
 
 with st.expander("Project Summary"):
     st.markdown("""

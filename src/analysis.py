@@ -1,8 +1,10 @@
-"""Statistical analysis: cross-correlation, regressions, Granger causality, seasonality."""
+"""Statistical analysis: cross-correlation, regressions, Granger causality, seasonality,
+relative performance, asymmetry, and panel regressions."""
 import pandas as pd
 import numpy as np
 from scipy import stats
 import warnings
+import statsmodels.api as sm
 
 
 def cross_correlation(flow_series: pd.Series, return_series: pd.Series,
@@ -63,8 +65,6 @@ def lag_regression(df: pd.DataFrame, flow_col: str, return_col: str,
 
     Returns dict with keys: coefficients, r_squared, adj_r_squared, f_pvalue, n_obs, summary_df
     """
-    import statsmodels.api as sm
-
     etf_df = df.copy().set_index("Date").sort_index()
 
     # Create lagged return columns
@@ -212,8 +212,6 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
     Compute R² from simple OLS (flow ~ return_lag_k) for each lag k.
     Useful for finding optimal lag horizon.
     """
-    import statsmodels.api as sm
-
     etf_df = df.copy().set_index("Date").sort_index()
     results = []
 
@@ -239,3 +237,323 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
         })
 
     return pd.DataFrame(results)
+
+
+# ============================================================
+# Relative Performance Analysis
+# ============================================================
+
+def relative_performance_regression(df: pd.DataFrame, flow_col: str,
+                                     return_col: str, excess_return_col: str,
+                                     lags: list[int]) -> dict | None:
+    """
+    Compare absolute vs excess return as predictors of flows.
+
+    Model 1: Flow ~ AbsoluteReturn(t-k)
+    Model 2: Flow ~ ExcessReturn(t-k)
+    Model 3: Flow ~ AbsoluteReturn(t-k) + ExcessReturn(t-k)
+    """
+    etf_df = df.copy().set_index("Date").sort_index()
+
+    abs_lags = {f"Abs_lag{k}": etf_df[return_col].shift(k) for k in lags}
+    exc_lags = {f"Exc_lag{k}": etf_df[excess_return_col].shift(k) for k in lags}
+
+    X_abs = pd.DataFrame(abs_lags, index=etf_df.index)
+    X_exc = pd.DataFrame(exc_lags, index=etf_df.index)
+    X_both = pd.concat([X_abs, X_exc], axis=1)
+    y = etf_df[flow_col]
+
+    models = {}
+    for name, X in [("absolute", X_abs), ("excess", X_exc), ("combined", X_both)]:
+        valid = pd.concat([y, X], axis=1).dropna()
+        if len(valid) < X.shape[1] + 5:
+            return None
+        y_c = valid.iloc[:, 0]
+        X_c = sm.add_constant(valid.iloc[:, 1:])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = sm.OLS(y_c, X_c).fit()
+        coef_df = pd.DataFrame({
+            "Variable": result.params.index,
+            "Coefficient": result.params.values,
+            "Std_Error": result.bse.values,
+            "t_stat": result.tvalues.values,
+            "p_value": result.pvalues.values,
+        })
+        models[name] = {
+            "coefficients": coef_df,
+            "r_squared": result.rsquared,
+            "adj_r_squared": result.rsquared_adj,
+            "n_obs": int(result.nobs),
+            "aic": result.aic,
+        }
+
+    return models
+
+
+def relative_performance_all_etfs(df: pd.DataFrame, flow_col: str,
+                                   return_col: str, excess_return_col: str,
+                                   lags: list[int]) -> pd.DataFrame:
+    """Summary table: ETF, R²_Absolute, R²_Excess, R²_Combined, N."""
+    rows = []
+    for etf in df["ETF"].unique():
+        etf_df = df[df["ETF"] == etf]
+        if etf_df[excess_return_col].dropna().empty:
+            continue
+        result = relative_performance_regression(
+            etf_df, flow_col, return_col, excess_return_col, lags)
+        if result is None:
+            continue
+        rows.append({
+            "ETF": etf,
+            "R²_Absolute": result["absolute"]["r_squared"],
+            "R²_Excess": result["excess"]["r_squared"],
+            "R²_Combined": result["combined"]["r_squared"],
+            "N": result["absolute"]["n_obs"],
+        })
+    return pd.DataFrame(rows)
+
+
+# ============================================================
+# Asymmetry Analysis
+# ============================================================
+
+def asymmetry_regression(df: pd.DataFrame, flow_col: str, return_col: str,
+                          lags: list[int]) -> dict | None:
+    """
+    Piecewise regression: Flow(t) = β₁·Return⁺(t-k) + β₂·Return⁻(t-k) + ε
+
+    Return⁺ = max(Return, 0), Return⁻ = min(Return, 0)
+    Wald test for H0: β₁ + β₂ = 0 (symmetric response)
+    """
+    etf_df = df.copy().set_index("Date").sort_index()
+
+    pos_lags = {}
+    neg_lags = {}
+    for k in lags:
+        shifted = etf_df[return_col].shift(k)
+        pos_lags[f"Return_pos_lag{k}"] = shifted.clip(lower=0)
+        neg_lags[f"Return_neg_lag{k}"] = shifted.clip(upper=0)
+
+    X = pd.DataFrame({**pos_lags, **neg_lags}, index=etf_df.index)
+    y = etf_df[flow_col]
+
+    valid = pd.concat([y, X], axis=1).dropna()
+    if len(valid) < len(lags) * 2 + 5:
+        return None
+
+    y_c = valid.iloc[:, 0]
+    X_c = sm.add_constant(valid.iloc[:, 1:])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = sm.OLS(y_c, X_c).fit()
+
+    coef_df = pd.DataFrame({
+        "Variable": model.params.index,
+        "Coefficient": model.params.values,
+        "Std_Error": model.bse.values,
+        "t_stat": model.tvalues.values,
+        "p_value": model.pvalues.values,
+    })
+
+    pos_cols = [c for c in model.params.index if "pos" in c]
+    neg_cols = [c for c in model.params.index if "neg" in c]
+    beta_pos = model.params[pos_cols].mean()
+    beta_neg = model.params[neg_cols].mean()
+
+    # Wald test: H0: sum of pos coeffs + sum of neg coeffs = 0
+    R = np.zeros((1, len(model.params)))
+    for col in pos_cols:
+        R[0, list(model.params.index).index(col)] = 1.0
+    for col in neg_cols:
+        R[0, list(model.params.index).index(col)] = 1.0
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            wald = model.wald_test(R, scalar=True)
+        wald_stat = float(wald.statistic)
+        wald_p = float(wald.pvalue)
+    except Exception:
+        wald_stat = np.nan
+        wald_p = np.nan
+
+    asym_ratio = beta_pos / abs(beta_neg) if abs(beta_neg) > 1e-10 else np.nan
+
+    return {
+        "coefficients": coef_df,
+        "r_squared": model.rsquared,
+        "adj_r_squared": model.rsquared_adj,
+        "n_obs": int(model.nobs),
+        "beta_pos": beta_pos,
+        "beta_neg": beta_neg,
+        "asymmetry_ratio": asym_ratio,
+        "wald_stat": wald_stat,
+        "wald_p": wald_p,
+    }
+
+
+def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str, return_col: str,
+                        lags: list[int]) -> pd.DataFrame:
+    """Summary table: ETF, Beta_Pos, Beta_Neg, Asymmetry_Ratio, Wald_P, R², N."""
+    rows = []
+    for etf in df["ETF"].unique():
+        etf_df = df[df["ETF"] == etf]
+        result = asymmetry_regression(etf_df, flow_col, return_col, lags)
+        if result is None:
+            continue
+        rows.append({
+            "ETF": etf,
+            "Beta_Pos": result["beta_pos"],
+            "Beta_Neg": result["beta_neg"],
+            "Asymmetry_Ratio": result["asymmetry_ratio"],
+            "Wald_P": result["wald_p"],
+            "R²": result["r_squared"],
+            "N": result["n_obs"],
+        })
+    return pd.DataFrame(rows)
+
+
+# ============================================================
+# Panel Regression
+# ============================================================
+
+def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
+                     excess_return_col: str | None = None,
+                     lags: list[int] = [1],
+                     entity_effects: bool = True,
+                     time_effects: bool = False,
+                     cluster_entity: bool = True,
+                     add_controls: bool = False) -> dict | None:
+    """
+    Panel regression using linearmodels PanelOLS.
+
+    Entity (ETF) fixed effects, optional time fixed effects,
+    clustered standard errors by entity, optional volatility control.
+    """
+    from linearmodels.panel import PanelOLS, PooledOLS
+
+    pdf = df.copy()
+
+    # Build lagged return columns
+    for k in lags:
+        pdf[f"Return_lag{k}"] = pdf.groupby("ETF")[return_col].shift(k)
+        if excess_return_col and excess_return_col in pdf.columns:
+            pdf[f"Excess_lag{k}"] = pdf.groupby("ETF")[excess_return_col].shift(k)
+
+    # Optional: rolling volatility control
+    if add_controls:
+        pdf["Volatility"] = pdf.groupby("ETF")[return_col].transform(
+            lambda x: x.rolling(5, min_periods=3).std()
+        )
+
+    # Build X matrix
+    x_cols = [f"Return_lag{k}" for k in lags]
+    if excess_return_col and excess_return_col in pdf.columns:
+        x_cols += [f"Excess_lag{k}" for k in lags]
+    if add_controls:
+        x_cols.append("Volatility")
+
+    pdf = pdf.dropna(subset=[flow_col] + x_cols)
+    if len(pdf) < len(x_cols) + 10:
+        return None
+
+    # Set multi-index for panel
+    pdf["ETF_cat"] = pd.Categorical(pdf["ETF"])
+    pdf = pdf.set_index(["ETF_cat", "Date"])
+
+    y = pdf[flow_col]
+    X = pdf[x_cols]
+    X = sm.add_constant(X)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if not entity_effects and not time_effects:
+            model = PooledOLS(y, X).fit(
+                cov_type="clustered" if cluster_entity else "unadjusted",
+                cluster_entity=cluster_entity,
+            )
+        else:
+            model = PanelOLS(
+                y, X,
+                entity_effects=entity_effects,
+                time_effects=time_effects,
+                drop_absorbed=True,
+            ).fit(
+                cov_type="clustered" if cluster_entity else "unadjusted",
+                cluster_entity=cluster_entity,
+            )
+
+    coef_df = pd.DataFrame({
+        "Variable": model.params.index,
+        "Coefficient": model.params.values,
+        "Std_Error": model.std_errors.values,
+        "t_stat": model.tstats.values,
+        "p_value": model.pvalues.values,
+    })
+
+    result = {
+        "coefficients": coef_df,
+        "r_squared_within": getattr(model, "rsquared_within", model.rsquared),
+        "r_squared_between": getattr(model, "rsquared_between", np.nan),
+        "r_squared_overall": getattr(model, "rsquared_overall", model.rsquared),
+        "n_obs": int(model.nobs),
+        "n_entities": int(model.entity_info.total) if hasattr(model, "entity_info") else pdf.index.get_level_values(0).nunique(),
+    }
+
+    # Extract entity effects if available
+    if entity_effects and hasattr(model, "estimated_effects"):
+        effects = model.estimated_effects.copy()
+        effects = effects.reset_index()
+        effects.columns = ["ETF", "Date", "Effect"]
+        entity_avg = effects.groupby("ETF")["Effect"].mean().reset_index()
+        entity_avg.columns = ["ETF", "Fixed_Effect"]
+        result["entity_effects"] = entity_avg
+
+    return result
+
+
+def panel_regression_comparison(df: pd.DataFrame, flow_col: str,
+                                 return_col: str,
+                                 excess_return_col: str | None = None,
+                                 lags: list[int] = [1]) -> pd.DataFrame:
+    """
+    Run 5 panel specifications side by side:
+    1. Pooled OLS
+    2. Entity FE
+    3. Entity + Time FE
+    4. Entity FE with excess return
+    5. Entity FE with controls
+    """
+    specs = [
+        ("Pooled OLS", dict(entity_effects=False, time_effects=False,
+                            excess_return_col=None, add_controls=False)),
+        ("Entity FE", dict(entity_effects=True, time_effects=False,
+                           excess_return_col=None, add_controls=False)),
+        ("Entity+Time FE", dict(entity_effects=True, time_effects=True,
+                                excess_return_col=None, add_controls=False)),
+        ("Entity FE + Excess", dict(entity_effects=True, time_effects=False,
+                                    excess_return_col=excess_return_col,
+                                    add_controls=False)),
+        ("Entity FE + Controls", dict(entity_effects=True, time_effects=False,
+                                      excess_return_col=None,
+                                      add_controls=True)),
+    ]
+
+    rows = []
+    for name, kwargs in specs:
+        result = panel_regression(df, flow_col, return_col, lags=lags, **kwargs)
+        if result is None:
+            continue
+        row = {"Specification": name,
+               "R²_within": result["r_squared_within"],
+               "R²_overall": result["r_squared_overall"],
+               "N": result["n_obs"],
+               "Entities": result["n_entities"]}
+        for _, cr in result["coefficients"].iterrows():
+            if cr["Variable"] != "const":
+                row[f"{cr['Variable']}_coef"] = cr["Coefficient"]
+                row[f"{cr['Variable']}_pval"] = cr["p_value"]
+        rows.append(row)
+
+    return pd.DataFrame(rows)
