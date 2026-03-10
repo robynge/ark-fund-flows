@@ -239,6 +239,26 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
     return pd.DataFrame(results)
 
 
+def r_squared_by_lag_all_etfs(df: pd.DataFrame, flow_col: str,
+                               return_col: str) -> pd.DataFrame:
+    """Compute R² by lag for every ETF. Returns long-form DataFrame
+    with columns: ETF, lag, r_squared, coefficient, p_value.
+    Lag range is auto-computed per ETF from data length."""
+    results = []
+    for etf in df["ETF"].unique():
+        etf_df = df[df["ETF"] == etf]
+        n = len(etf_df[flow_col].dropna())
+        max_lag = max(1, min(n // 2, 24))
+        lag_range = range(1, max_lag + 1)
+        r2 = r_squared_by_lag(etf_df, flow_col, return_col, lag_range)
+        if len(r2) > 0:
+            r2["ETF"] = etf
+            results.append(r2)
+    if not results:
+        return pd.DataFrame(columns=["ETF", "lag", "r_squared", "coefficient", "p_value"])
+    return pd.concat(results, ignore_index=True)
+
+
 def auto_lags(n_obs: int, max_ratio: float = 0.2, cap: int = 12) -> list[int]:
     """Compute lag range automatically from data length.
 
