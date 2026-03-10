@@ -239,7 +239,7 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
     return pd.DataFrame(results)
 
 
-def _auto_lags(n_obs: int, max_ratio: float = 0.2, cap: int = 12) -> list[int]:
+def auto_lags(n_obs: int, max_ratio: float = 0.2, cap: int = 12) -> list[int]:
     """Compute lag range automatically from data length.
 
     Uses up to max_ratio * n_obs lags, capped at `cap`.
@@ -312,7 +312,7 @@ def relative_performance_all_etfs(df: pd.DataFrame, flow_col: str,
         if etf_df[excess_return_col].dropna().empty:
             continue
         n = len(etf_df[flow_col].dropna())
-        lags = _auto_lags(n)
+        lags = auto_lags(n)
         result = relative_performance_regression(
             etf_df, flow_col, return_col, excess_return_col, lags)
         if result is None:
@@ -414,7 +414,7 @@ def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str,
     for etf in df["ETF"].unique():
         etf_df = df[df["ETF"] == etf]
         n = len(etf_df[flow_col].dropna())
-        lags = _auto_lags(n)
+        lags = auto_lags(n)
         result = asymmetry_regression(etf_df, flow_col, return_col, lags)
         if result is None:
             continue
@@ -537,7 +537,7 @@ def panel_regression_comparison(df: pd.DataFrame, flow_col: str,
     Lags are computed automatically from the shortest ETF's data length.
     """
     min_n = df.groupby("ETF")[flow_col].apply(lambda x: x.notna().sum()).min()
-    lags = _auto_lags(min_n)
+    lags = auto_lags(min_n)
 
     specs = [
         ("Pooled OLS", dict(entity_effects=False, time_effects=False,

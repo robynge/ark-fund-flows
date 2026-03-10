@@ -12,7 +12,7 @@ from data_loader import (
     get_prepared_data_with_peers, ETF_NAMES, PEER_ETF_NAMES, ALL_ETF_NAMES,
 )
 from analysis import (
-    _auto_lags, r_squared_by_lag,
+    auto_lags, r_squared_by_lag,
     relative_performance_regression, relative_performance_all_etfs,
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
@@ -164,7 +164,7 @@ if len(rp_summary) > 0:
                 )
 
             # Regression tables
-            etf_lags = _auto_lags(n_obs)
+            etf_lags = auto_lags(n_obs)
             rp_detail = relative_performance_regression(
                 etf_df, fc, rc, exc_col, etf_lags)
             if rp_detail:
@@ -247,7 +247,7 @@ if len(asym_summary) > 0:
     # Per-ETF coefficient plot
     with st.expander(f"Per-ETF Detail: {selected_etf}"):
         etf_df = df_valid[df_valid["ETF"] == selected_etf]
-        etf_lags = _auto_lags(len(etf_df[fc].dropna()))
+        etf_lags = auto_lags(len(etf_df[fc].dropna()))
         asym_detail = asymmetry_regression(etf_df, fc, rc, etf_lags)
         if asym_detail:
             coef = asym_detail["coefficients"]
@@ -328,7 +328,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
             st.subheader("Entity Fixed Effects")
             min_n = panel_df.groupby("ETF")[fc].apply(
                 lambda x: x.notna().sum()).min()
-            panel_lags = _auto_lags(min_n)
+            panel_lags = auto_lags(min_n)
             fe_result = panel_regression(
                 panel_df, fc, rc, lags=panel_lags,
                 entity_effects=True, time_effects=False)
