@@ -112,6 +112,11 @@ def load_peer_data(freq, benchmark):
 df = load_peer_data(freq, benchmark)
 
 use_pct = flow_metric == "% of AUM"
+# Fall back to raw flow if Flow_Pct column is missing or all-NaN
+if use_pct and ("Flow_Pct" not in df.columns or df["Flow_Pct"].notna().sum() == 0):
+    use_pct = False
+    st.sidebar.warning("AUM data unavailable — using raw dollar flows.")
+
 if freq == "D":
     fc = "Flow_Pct" if use_pct else "Fund_Flow"
     rc, fc_z, rc_z = "Return", "Fund_Flow_Z", "Return_Z"
