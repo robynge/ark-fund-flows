@@ -18,7 +18,9 @@ from analysis import (
     relative_performance_regression, relative_performance_all_etfs,
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
+    seasonality_analysis,
 )
+from scipy import stats
 
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.title("Do ETF Investors Chase Past Performance?")
@@ -37,6 +39,7 @@ section's question, building a complete research narrative.
 3. **Absolute vs Relative Performance** — Own return vs peer-relative return?
 4. **Asymmetric Response** — Do gains and losses trigger equal reactions?
 5. **Panel Regression** — Robustness check across all ETFs simultaneously
+6. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
 """)
 
 # --- Sidebar ---
@@ -596,3 +599,54 @@ with st.spinner("Running panel regressions (5 specifications)..."):
         st.error("Please install `linearmodels`: `pip install linearmodels>=6.0`")
     except Exception as e:
         st.error(f"Panel regression error: {e}")
+
+
+# ============================================================
+# Section 6 — Seasonality
+# ============================================================
+st.markdown("---")
+st.header("6. Seasonality")
+st.markdown("""
+**Question**: Are there calendar effects in fund flows?
+
+Some months (e.g., January) may see systematic reallocation. This section shows
+average daily flows by calendar month for the selected ETF, with a t-test
+comparing January to all other months.
+""")
+
+# Always use daily data for seasonality analysis
+@st.cache_data(show_spinner="Loading daily data for seasonality...")
+def load_daily_data(benchmark):
+    return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark=benchmark)
+
+daily_df = load_daily_data(benchmark)
+etf_daily = daily_df[daily_df["ETF"] == selected_etf]
+
+seasonal = seasonality_analysis(etf_daily, "Fund_Flow")
+
+if len(seasonal) > 0:
+    st.subheader(f"{selected_etf} — Average Flow by Month")
+    m_colors = ["#2ca02c" if m >= 0 else "#d62728" for m in seasonal["Mean"]]
+    fig_s = go.Figure(go.Bar(
+        x=seasonal["Month_Name"], y=seasonal["Mean"], marker_color=m_colors,
+        error_y=dict(type="data",
+                     array=seasonal["Std"] / seasonal["Count"] ** 0.5,
+                     visible=True),
+        hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
+    ))
+    fig_s.update_layout(height=380, yaxis_title="Avg Daily Flow ($M)",
+                        margin=dict(l=60, r=40, t=30, b=30))
+    fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
+    st.plotly_chart(fig_s, use_container_width=True)
+
+    # January t-test
+    jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
+    other = etf_daily[etf_daily["Date"].dt.month != 1]["Fund_Flow"].dropna()
+    if len(jan) > 5 and len(other) > 5:
+        t_stat, p_val = stats.ttest_ind(jan, other, equal_var=False)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Jan Avg ($M/day)", f"{jan.mean():.2f}")
+        c2.metric("Other Months Avg", f"{other.mean():.2f}")
+        c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
+else:
+    st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
