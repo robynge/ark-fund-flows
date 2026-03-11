@@ -211,7 +211,7 @@ for etf in valid_etfs:
         continue
     all_stats.append({
         "ETF": etf,
-        "Source": "ARK" if etf in ETF_NAMES else "Peer",
+        "Source": "ARK" if etf in ETF_NAMES else "Tech Peers",
         "Mean": s.mean(),
         "Median": s.median(),
         "Std": s.std(),
@@ -228,10 +228,10 @@ if len(all_stats_df) > 0:
     with col_box:
         # Box plot: flow distributions, ARK vs Peers
         flow_long = df_valid[df_valid["ETF"].isin(valid_etfs)][[fc, "ETF", "Is_ARK"]].dropna()
-        flow_long["Source"] = flow_long["Is_ARK"].map({True: "ARK", False: "Peer"})
+        flow_long["Source"] = flow_long["Is_ARK"].map({True: "ARK", False: "Tech Peers"})
         fig_box_dist = px.box(
             flow_long, x="Source", y=fc, color="Source",
-            color_discrete_map={"ARK": "#1f77b4", "Peer": "#aec7e8"},
+            color_discrete_map={"ARK": "#1f77b4", "Tech Peers": "#aec7e8"},
             title="Flow Distribution: ARK vs Peers",
             points=False,
         )
@@ -242,7 +242,7 @@ if len(all_stats_df) > 0:
     with col_vol:
         # Bar chart: std dev per ETF (flow volatility)
         vol_df = all_stats_df.sort_values("Std", ascending=False)
-        colors = vol_df["Source"].map({"ARK": "#1f77b4", "Peer": "#aec7e8"})
+        colors = vol_df["Source"].map({"ARK": "#1f77b4", "Tech Peers": "#aec7e8"})
         fig_vol = go.Figure(go.Bar(
             x=vol_df["ETF"], y=vol_df["Std"], marker_color=colors,
             hovertemplate="ETF: %{x}<br>Std: %{y:.2f}<extra></extra>",
@@ -366,7 +366,7 @@ if len(etf_df) > 0:
             peak_row = etf_r2.loc[etf_r2["r_squared"].idxmax()]
             summary_rows.append({
                 "ETF": etf,
-                "Source": "ARK" if etf in ETF_NAMES else "Peer",
+                "Source": "ARK" if etf in ETF_NAMES else "Tech Peers",
                 "Peak Lag": int(peak_row["lag"]),
                 "Peak R²": peak_row["r_squared"],
                 "Peak p-value": peak_row["p_value"],
@@ -426,13 +426,13 @@ if len(all_r2) > 0:
     # Peak lag distribution
     peak_lags = all_r2.loc[all_r2.groupby("ETF")["r_squared"].idxmax()]
     peak_lags["Source"] = peak_lags["ETF"].apply(
-        lambda x: "ARK" if x in ETF_NAMES else "Peer")
+        lambda x: "ARK" if x in ETF_NAMES else "Tech Peers")
 
     col_dist1, col_dist2 = st.columns(2)
     with col_dist1:
         fig_pk = px.histogram(
             peak_lags, x="lag", color="Source", barmode="overlay",
-            nbins=max_lag_profile, color_discrete_map={"ARK": "#1f77b4", "Peer": "#aec7e8"},
+            nbins=max_lag_profile, color_discrete_map={"ARK": "#1f77b4", "Tech Peers": "#aec7e8"},
             title="Peak Lag Distribution",
         )
         fig_pk.update_layout(height=300, xaxis_title=f"Peak Lag ({freq_label})")
@@ -441,7 +441,7 @@ if len(all_r2) > 0:
     with col_dist2:
         fig_box = px.box(
             peak_lags, x="Source", y="r_squared", color="Source",
-            color_discrete_map={"ARK": "#1f77b4", "Peer": "#aec7e8"},
+            color_discrete_map={"ARK": "#1f77b4", "Tech Peers": "#aec7e8"},
             title="Peak R² Distribution",
             points="all",
         )
@@ -581,7 +581,7 @@ with st.spinner("Running relative performance regressions..."):
 
 if len(rp_summary) > 0:
     rp_summary["Source"] = rp_summary["ETF"].apply(
-        lambda x: "ARK" if x in ETF_NAMES else "Peer")
+        lambda x: "ARK" if x in ETF_NAMES else "Tech Peers")
 
     st.subheader("R² Comparison: All ETFs")
     rp_melt = rp_summary.melt(
@@ -633,7 +633,7 @@ with st.spinner("Running asymmetry regressions..."):
 
 if len(asym_summary) > 0:
     asym_summary["Source"] = asym_summary["ETF"].apply(
-        lambda x: "ARK" if x in ETF_NAMES else "Peer")
+        lambda x: "ARK" if x in ETF_NAMES else "Tech Peers")
 
     # Grouped bar: β_pos vs |β_neg|
     asym_bar = asym_summary.copy()
@@ -754,8 +754,8 @@ with st.spinner("Running panel regressions (5 specifications)..."):
             if fe_result and "entity_effects" in fe_result:
                 fe_df = fe_result["entity_effects"].sort_values("Fixed_Effect")
                 fe_df["Source"] = fe_df["ETF"].apply(
-                    lambda x: "ARK" if x in ETF_NAMES else "Peer")
-                colors = fe_df["Source"].map({"ARK": "#1f77b4", "Peer": "#aec7e8"})
+                    lambda x: "ARK" if x in ETF_NAMES else "Tech Peers")
+                colors = fe_df["Source"].map({"ARK": "#1f77b4", "Tech Peers": "#aec7e8"})
 
                 fig_fe = go.Figure(go.Bar(
                     x=fe_df["ETF"], y=fe_df["Fixed_Effect"],
