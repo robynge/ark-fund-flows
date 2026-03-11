@@ -34,12 +34,13 @@ section's question, building a complete research narrative.
 **Data**: Daily fund flow and price data (2014–2026), aggregated to chosen frequency.
 
 **Sections**:
-1. **Does Performance Chasing Exist?** — Do past returns predict future flows?
-2. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
-3. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
-4. **Absolute vs Relative Performance** — Own return vs market-relative return?
-5. **Asymmetric Response** — Do gains and losses trigger equal reactions?
-6. **Panel Regression** — Robustness check across all ETFs simultaneously
+1. **Fund Flow Distribution** — What does a typical flow look like? What's big vs small?
+2. **Does Performance Chasing Exist?** — Do past returns predict future flows?
+3. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
+4. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
+5. **Absolute vs Relative Performance** — Own return vs market-relative return?
+6. **Asymmetric Response** — Do gains and losses trigger equal reactions?
+7. **Panel Regression** — Robustness check across all ETFs simultaneously
 """)
 
 # --- Sidebar ---
@@ -145,9 +146,131 @@ n_peer = n_valid - n_ark
 
 
 # ============================================================
-# Section 1 — Does Performance Chasing Exist?
+# Section 1 — Fund Flow Distribution
 # ============================================================
-st.header("1. Does Performance Chasing Exist?")
+st.header("1. Fund Flow Distribution")
+st.markdown(f"""
+**Question**: What does a typical fund flow look like? What counts as a large
+inflow or outflow?
+
+Before testing for performance chasing, we need to understand the data.
+This section shows the distribution of {flow_ylabel.lower()} at the chosen
+frequency, with percentile breakdowns and cross-ETF comparisons.
+""")
+
+# --- Per-ETF histogram + stats ---
+etf_dist = df_valid[df_valid["ETF"] == selected_etf][fc].dropna()
+
+if len(etf_dist) > 0:
+    col_hist, col_stats = st.columns([2, 1])
+
+    with col_hist:
+        st.subheader(f"{selected_etf}: Flow Distribution")
+        fig_dist = go.Figure()
+        fig_dist.add_trace(go.Histogram(
+            x=etf_dist, nbinsx=50,
+            marker_color="#1f77b4", opacity=0.8,
+            hovertemplate="Range: %{x}<br>Count: %{y}<extra></extra>",
+        ))
+        fig_dist.add_vline(x=etf_dist.median(), line_dash="dash",
+                           line_color="red", opacity=0.7,
+                           annotation_text="Median",
+                           annotation_position="top right")
+        fig_dist.add_vline(x=0, line_color="gray", opacity=0.4)
+        fig_dist.update_layout(
+            height=380, xaxis_title=flow_ylabel, yaxis_title="Count",
+            margin=dict(l=60, r=30, t=30, b=30),
+        )
+        st.plotly_chart(fig_dist, use_container_width=True)
+
+    with col_stats:
+        st.subheader("Percentiles")
+        pcts = [5, 10, 25, 50, 75, 90, 95]
+        pct_vals = np.percentile(etf_dist, pcts)
+        pct_df = pd.DataFrame({
+            "Percentile": [f"P{p}" for p in pcts],
+            "Value": pct_vals,
+        })
+        pct_df_display = pct_df.copy()
+        pct_df_display["Value"] = pct_df_display["Value"].map(
+            lambda v: f"{v:.4f}" if abs(v) < 1 else f"{v:.2f}")
+        st.dataframe(pct_df_display, hide_index=True, use_container_width=True)
+
+        st.metric("Mean", f"{etf_dist.mean():.2f}")
+        st.metric("Std Dev", f"{etf_dist.std():.2f}")
+        st.metric("Skewness", f"{etf_dist.skew():.2f}")
+        st.metric("Observations", f"{len(etf_dist):,}")
+
+# --- All-ETF comparison ---
+st.subheader("Cross-ETF Comparison")
+
+all_stats = []
+for etf in valid_etfs:
+    s = df_valid[df_valid["ETF"] == etf][fc].dropna()
+    if len(s) < 5:
+        continue
+    all_stats.append({
+        "ETF": etf,
+        "Source": "ARK" if etf in ETF_NAMES else "Peer",
+        "Mean": s.mean(),
+        "Median": s.median(),
+        "Std": s.std(),
+        "P5": np.percentile(s, 5),
+        "P95": np.percentile(s, 95),
+        "Skew": s.skew(),
+        "N": len(s),
+    })
+all_stats_df = pd.DataFrame(all_stats)
+
+if len(all_stats_df) > 0:
+    col_box, col_vol = st.columns(2)
+
+    with col_box:
+        # Box plot: flow distributions, ARK vs Peers
+        flow_long = df_valid[df_valid["ETF"].isin(valid_etfs)][[fc, "ETF", "Is_ARK"]].dropna()
+        flow_long["Source"] = flow_long["Is_ARK"].map({True: "ARK", False: "Peer"})
+        fig_box_dist = px.box(
+            flow_long, x="Source", y=fc, color="Source",
+            color_discrete_map={"ARK": "#1f77b4", "Peer": "#aec7e8"},
+            title="Flow Distribution: ARK vs Peers",
+            points=False,
+        )
+        fig_box_dist.update_layout(height=380, yaxis_title=flow_ylabel,
+                                   showlegend=False)
+        st.plotly_chart(fig_box_dist, use_container_width=True)
+
+    with col_vol:
+        # Bar chart: std dev per ETF (flow volatility)
+        vol_df = all_stats_df.sort_values("Std", ascending=False)
+        colors = vol_df["Source"].map({"ARK": "#1f77b4", "Peer": "#aec7e8"})
+        fig_vol = go.Figure(go.Bar(
+            x=vol_df["ETF"], y=vol_df["Std"], marker_color=colors,
+            hovertemplate="ETF: %{x}<br>Std: %{y:.2f}<extra></extra>",
+        ))
+        fig_vol.update_layout(
+            height=380, title="Flow Volatility by ETF",
+            yaxis_title=f"Std Dev ({flow_ylabel})",
+            xaxis_tickangle=-45,
+            margin=dict(l=60, r=30, t=40, b=80),
+        )
+        st.plotly_chart(fig_vol, use_container_width=True)
+
+    # Summary table
+    st.dataframe(
+        all_stats_df.sort_values("Std", ascending=False)
+        .style.format({
+            "Mean": "{:.2f}", "Median": "{:.2f}", "Std": "{:.2f}",
+            "P5": "{:.2f}", "P95": "{:.2f}", "Skew": "{:.2f}",
+        }),
+        hide_index=True, use_container_width=True,
+    )
+
+
+# ============================================================
+# Section 2 — Does Performance Chasing Exist?
+# ============================================================
+st.markdown("---")
+st.header("2. Does Performance Chasing Exist?")
 st.markdown("""
 **Question**: Do past returns predict future fund flows?
 
@@ -259,10 +382,10 @@ else:
 
 
 # ============================================================
-# Section 2 — How Long Does the Effect Last?
+# Section 3 — How Long Does the Effect Last?
 # ============================================================
 st.markdown("---")
-st.header("2. How Long Does the Effect Last?")
+st.header("3. How Long Does the Effect Last?")
 st.markdown("""
 **Question**: At which lag is the effect strongest, and how far back does it extend?
 
@@ -329,15 +452,15 @@ else:
 
 
 # ============================================================
-# Section 3 — Seasonality
+# Section 4 — Seasonality
 # ============================================================
 st.markdown("---")
-st.header("3. Seasonality")
+st.header("4. Seasonality")
 st.markdown("""
 **Question**: Are there calendar effects in fund flows?
 
 Some months (e.g., January) may see systematic reallocation. If flows are
-seasonally driven, the performance-chasing signal from Sections 1–2 could be
+seasonally driven, the performance-chasing signal from Sections 2–3 could be
 a confound. This section checks whether calendar effects exist and how large
 they are.
 """)
@@ -384,10 +507,10 @@ else:
 
 
 # ============================================================
-# Section 4 — Absolute vs Relative Performance
+# Section 5 — Absolute vs Relative Performance
 # ============================================================
 st.markdown("---")
-st.header("4. Absolute vs Relative Performance")
+st.header("5. Absolute vs Relative Performance")
 _bench_desc = {
     "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
 }
@@ -490,10 +613,10 @@ else:
 
 
 # ============================================================
-# Section 5 — Asymmetric Response
+# Section 6 — Asymmetric Response
 # ============================================================
 st.markdown("---")
-st.header("5. Asymmetric Response")
+st.header("6. Asymmetric Response")
 st.markdown("""
 **Question**: Do investors react equally to gains and losses?
 
@@ -583,10 +706,10 @@ else:
 
 
 # ============================================================
-# Section 6 — Panel Regression (Robustness)
+# Section 7 — Panel Regression (Robustness)
 # ============================================================
 st.markdown("---")
-st.header("6. Panel Regression (Robustness)")
+st.header("7. Panel Regression (Robustness)")
 st.markdown("""
 **Question**: Are these findings robust across all 38 ETFs simultaneously?
 
