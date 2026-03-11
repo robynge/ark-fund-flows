@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 EXCEL_PATH = Path(__file__).parent.parent / "ARK ETF Fund Flows.xlsx"
 PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
+ARK_AUM_PATH = Path(__file__).parent.parent / "ARK ETF AUM.xlsx"
+PEER_AUM_PATH = Path(__file__).parent.parent / "Peers AUM.xlsx"
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
@@ -246,6 +248,59 @@ def add_market_benchmark(df: pd.DataFrame, return_col: str,
     return df
 
 
+def load_aum_data() -> pd.DataFrame:
+    """Load AUM data from both ARK and Peers Excel files.
+
+    Returns long-format DataFrame with columns: Date, ETF, AUM.
+    AUM values are in millions of dollars.
+    """
+    frames = []
+    for path in [ARK_AUM_PATH, PEER_AUM_PATH]:
+        if not path.exists():
+            logger.warning("AUM file not found: %s", path)
+            continue
+        wide = pd.read_excel(path, sheet_name=0)
+        wide["Date"] = pd.to_datetime(wide["Date"])
+        # Melt to long format
+        value_cols = [c for c in wide.columns if c != "Date"]
+        long = wide.melt(id_vars="Date", value_vars=value_cols,
+                         var_name="BBG_Ticker", value_name="AUM")
+        # Extract ETF ticker: "ARKK US Equity" -> "ARKK", "ARKB US Equity  (L3)" -> "ARKB"
+        long["ETF"] = long["BBG_Ticker"].str.extract(r"^(\w+)\s+US", expand=False)
+        long = long.dropna(subset=["ETF", "AUM"])
+        long = long[["Date", "ETF", "AUM"]].copy()
+        frames.append(long)
+    if not frames:
+        return pd.DataFrame(columns=["Date", "ETF", "AUM"])
+    return pd.concat(frames, ignore_index=True)
+
+
+def merge_aum(df: pd.DataFrame, freq: str = "D") -> pd.DataFrame:
+    """Merge AUM onto the main DataFrame and compute Flow_Pct = Fund_Flow / AUM.
+
+    For aggregated frequencies, AUM is the last value in each period.
+    Flow_Pct is expressed as a percentage (×100).
+    """
+    aum = load_aum_data()
+    if aum.empty:
+        df = df.copy()
+        df["AUM"] = np.nan
+        df["Flow_Pct"] = np.nan
+        return df
+
+    if freq != "D":
+        # Aggregate AUM to matching frequency: use last available value per period
+        aum = aum.set_index("Date")
+        aum_agg = aum.groupby("ETF").resample(freq)["AUM"].last().reset_index()
+        aum = aum_agg.dropna(subset=["AUM"])
+
+    df = df.merge(aum[["Date", "ETF", "AUM"]], on=["Date", "ETF"], how="left")
+
+    flow_col = "Fund_Flow" if freq == "D" else "Flow_Sum"
+    df["Flow_Pct"] = df[flow_col] / df["AUM"] * 100
+    return df
+
+
 def get_prepared_data_with_peers(freq: str = "D",
                                   zscore_type: str = "full",
                                   benchmark: str = "SPY") -> pd.DataFrame:
@@ -269,9 +324,13 @@ def get_prepared_data_with_peers(freq: str = "D",
 
     df = add_source_flag(df)
     df = add_market_benchmark(df, return_col, benchmark=benchmark, freq=freq)
+    df = merge_aum(df, freq=freq)
 
     if zscore_type == "full":
         df = add_zscore_columns(df, flow_col=flow_col, return_col=return_col)
+        # Also z-score normalize Flow_Pct if available
+        if "Flow_Pct" in df.columns and df["Flow_Pct"].notna().any():
+            df["Flow_Pct_Z"] = df.groupby("ETF")["Flow_Pct"].transform(zscore_normalize)
     else:
         window = {"D": 252, "W": 52, "ME": 12, "QE": 4}.get(freq, 252)
         df = add_rolling_zscore_columns(df, window=window,

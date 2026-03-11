@@ -86,6 +86,8 @@ ETF_FULL_NAMES = {
     "SOCL": "Global X Social Media",
 }
 
+FLOW_UNIT_OPTIONS = {"Raw $ (millions)": "raw", "% of AUM": "pct"}
+
 with st.sidebar:
     freq = st.selectbox(
         "Frequency", ["D", "W", "ME", "QE"],
@@ -94,6 +96,8 @@ with st.sidebar:
     )
     benchmark_label = st.selectbox("Benchmark", list(BENCHMARK_OPTIONS.keys()))
     benchmark = BENCHMARK_OPTIONS[benchmark_label]
+    flow_unit_label = st.selectbox("Flow Unit", list(FLOW_UNIT_OPTIONS.keys()))
+    flow_unit = FLOW_UNIT_OPTIONS[flow_unit_label]
     selected_etf = st.selectbox(
         "Per-ETF View", ALL_ETF_NAMES, index=0,
         format_func=lambda x: f"{x} — {ETF_FULL_NAMES.get(x, x)}",
@@ -110,9 +114,23 @@ def load_peer_data(freq, benchmark):
 df = load_peer_data(freq, benchmark)
 
 if freq == "D":
-    fc, rc, fc_z, rc_z = "Fund_Flow", "Return", "Fund_Flow_Z", "Return_Z"
+    fc_raw, rc = "Fund_Flow", "Return"
+    fc_z_raw, rc_z = "Fund_Flow_Z", "Return_Z"
 else:
-    fc, rc, fc_z, rc_z = "Flow_Sum", "Return_Cum", "Flow_Sum_Z", "Return_Cum_Z"
+    fc_raw, rc = "Flow_Sum", "Return_Cum"
+    fc_z_raw, rc_z = "Flow_Sum_Z", "Return_Cum_Z"
+
+# Switch flow column based on unit selector
+if flow_unit == "pct" and "Flow_Pct" in df.columns and df["Flow_Pct"].notna().any():
+    fc = "Flow_Pct"
+    fc_z = "Flow_Pct_Z" if "Flow_Pct_Z" in df.columns else fc
+    flow_ylabel = "Flow (% of AUM)"
+else:
+    fc = fc_raw
+    fc_z = fc_z_raw
+    flow_ylabel = "Flow ($M)"
+    if flow_unit == "pct":
+        st.sidebar.warning("AUM data unavailable — showing raw $ flows.")
 
 exc_col = "Excess_Return"
 freq_label = {"D": "days", "W": "weeks", "ME": "months", "QE": "quarters"}[freq]
@@ -332,7 +350,8 @@ def load_daily_data(benchmark):
 daily_df = load_daily_data(benchmark)
 etf_daily = daily_df[daily_df["ETF"] == selected_etf]
 
-seasonal = seasonality_analysis(etf_daily, "Fund_Flow")
+daily_fc = "Flow_Pct" if flow_unit == "pct" and "Flow_Pct" in daily_df.columns and daily_df["Flow_Pct"].notna().any() else "Fund_Flow"
+seasonal = seasonality_analysis(etf_daily, daily_fc)
 
 if len(seasonal) > 0:
     st.subheader(f"{selected_etf} — Average Flow by Month")
@@ -344,18 +363,20 @@ if len(seasonal) > 0:
                      visible=True),
         hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
     ))
-    fig_s.update_layout(height=380, yaxis_title="Avg Daily Flow ($M)",
+    daily_ylabel = "Avg Daily Flow (% AUM)" if daily_fc == "Flow_Pct" else "Avg Daily Flow ($M)"
+    fig_s.update_layout(height=380, yaxis_title=daily_ylabel,
                         margin=dict(l=60, r=40, t=30, b=30))
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
     st.plotly_chart(fig_s, use_container_width=True)
 
     # January t-test
-    jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
-    other = etf_daily[etf_daily["Date"].dt.month != 1]["Fund_Flow"].dropna()
+    jan = etf_daily[etf_daily["Date"].dt.month == 1][daily_fc].dropna()
+    other = etf_daily[etf_daily["Date"].dt.month != 1][daily_fc].dropna()
     if len(jan) > 5 and len(other) > 5:
         t_stat, p_val = stats.ttest_ind(jan, other, equal_var=False)
         c1, c2, c3 = st.columns(3)
-        c1.metric("Jan Avg ($M/day)", f"{jan.mean():.2f}")
+        jan_unit = "% AUM/day" if daily_fc == "Flow_Pct" else "$M/day"
+        c1.metric(f"Jan Avg ({jan_unit})", f"{jan.mean():.2f}")
         c2.metric("Other Months Avg", f"{other.mean():.2f}")
         c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
 else:
