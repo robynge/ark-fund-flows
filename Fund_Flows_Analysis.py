@@ -36,10 +36,10 @@ section's question, building a complete research narrative.
 **Sections**:
 1. **Does Performance Chasing Exist?** — Do past returns predict future flows?
 2. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
-3. **Absolute vs Relative Performance** — Own return vs peer-relative return?
-4. **Asymmetric Response** — Do gains and losses trigger equal reactions?
-5. **Panel Regression** — Robustness check across all ETFs simultaneously
-6. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
+3. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
+4. **Absolute vs Relative Performance** — Own return vs market-relative return?
+5. **Asymmetric Response** — Do gains and losses trigger equal reactions?
+6. **Panel Regression** — Robustness check across all ETFs simultaneously
 """)
 
 # --- Sidebar ---
@@ -311,10 +311,62 @@ else:
 
 
 # ============================================================
-# Section 3 — Absolute vs Relative Performance
+# Section 3 — Seasonality
 # ============================================================
 st.markdown("---")
-st.header("3. Absolute vs Relative Performance")
+st.header("3. Seasonality")
+st.markdown("""
+**Question**: Are there calendar effects in fund flows?
+
+Some months (e.g., January) may see systematic reallocation. If flows are
+seasonally driven, the performance-chasing signal from Sections 1–2 could be
+a confound. This section checks whether calendar effects exist and how large
+they are.
+""")
+
+# Always use daily data for seasonality analysis
+@st.cache_data(show_spinner="Loading daily data for seasonality...")
+def load_daily_data(benchmark):
+    return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark=benchmark)
+
+daily_df = load_daily_data(benchmark)
+etf_daily = daily_df[daily_df["ETF"] == selected_etf]
+
+seasonal = seasonality_analysis(etf_daily, "Fund_Flow")
+
+if len(seasonal) > 0:
+    st.subheader(f"{selected_etf} — Average Flow by Month")
+    m_colors = ["#2ca02c" if m >= 0 else "#d62728" for m in seasonal["Mean"]]
+    fig_s = go.Figure(go.Bar(
+        x=seasonal["Month_Name"], y=seasonal["Mean"], marker_color=m_colors,
+        error_y=dict(type="data",
+                     array=seasonal["Std"] / seasonal["Count"] ** 0.5,
+                     visible=True),
+        hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
+    ))
+    fig_s.update_layout(height=380, yaxis_title="Avg Daily Flow ($M)",
+                        margin=dict(l=60, r=40, t=30, b=30))
+    fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
+    st.plotly_chart(fig_s, use_container_width=True)
+
+    # January t-test
+    jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
+    other = etf_daily[etf_daily["Date"].dt.month != 1]["Fund_Flow"].dropna()
+    if len(jan) > 5 and len(other) > 5:
+        t_stat, p_val = stats.ttest_ind(jan, other, equal_var=False)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Jan Avg ($M/day)", f"{jan.mean():.2f}")
+        c2.metric("Other Months Avg", f"{other.mean():.2f}")
+        c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
+else:
+    st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
+
+
+# ============================================================
+# Section 4 — Absolute vs Relative Performance
+# ============================================================
+st.markdown("---")
+st.header("4. Absolute vs Relative Performance")
 _bench_desc = {
     "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
 }
@@ -334,32 +386,32 @@ than raw return.
 """)
 
 # Per-ETF: R² by lag, absolute vs excess
-etf_df_sec3 = df_valid[df_valid["ETF"] == selected_etf]
-if len(etf_df_sec3) > 0 and not etf_df_sec3[exc_col].dropna().empty:
-    n_obs3 = len(etf_df_sec3[fc].dropna())
-    max_lag3 = max(1, min(n_obs3 // 2, 24))
-    lag_range3 = range(1, max_lag3 + 1)
+etf_df_sec4 = df_valid[df_valid["ETF"] == selected_etf]
+if len(etf_df_sec4) > 0 and not etf_df_sec4[exc_col].dropna().empty:
+    n_obs4 = len(etf_df_sec4[fc].dropna())
+    max_lag4 = max(1, min(n_obs4 // 2, 24))
+    lag_range4 = range(1, max_lag4 + 1)
 
-    r2_abs3 = r_squared_by_lag(etf_df_sec3, fc, rc, lag_range3)
-    r2_exc3 = r_squared_by_lag(etf_df_sec3, fc, exc_col, lag_range3)
+    r2_abs4 = r_squared_by_lag(etf_df_sec4, fc, rc, lag_range4)
+    r2_exc4 = r_squared_by_lag(etf_df_sec4, fc, exc_col, lag_range4)
 
-    if len(r2_abs3) > 0 and len(r2_exc3) > 0:
+    if len(r2_abs4) > 0 and len(r2_exc4) > 0:
         st.subheader(f"{selected_etf}: R² by Lag — Absolute vs Excess")
         fig_cmp = go.Figure()
         fig_cmp.add_trace(go.Scatter(
-            x=r2_abs3["lag"], y=r2_abs3["r_squared"],
+            x=r2_abs4["lag"], y=r2_abs4["r_squared"],
             name="Absolute Return", mode="lines+markers",
             line=dict(color="#1f77b4", width=2),
             hovertemplate="Lag %{x}<br>Absolute R²: %{y:.4f}<extra></extra>",
         ))
         fig_cmp.add_trace(go.Scatter(
-            x=r2_exc3["lag"], y=r2_exc3["r_squared"],
+            x=r2_exc4["lag"], y=r2_exc4["r_squared"],
             name="Excess Return", mode="lines+markers",
             line=dict(color="#ff7f0e", width=2),
             hovertemplate="Lag %{x}<br>Excess R²: %{y:.4f}<extra></extra>",
         ))
-        abs_peak = r2_abs3.loc[r2_abs3["r_squared"].idxmax()]
-        exc_peak = r2_exc3.loc[r2_exc3["r_squared"].idxmax()]
+        abs_peak = r2_abs4.loc[r2_abs4["r_squared"].idxmax()]
+        exc_peak = r2_exc4.loc[r2_exc4["r_squared"].idxmax()]
         fig_cmp.add_annotation(
             x=abs_peak["lag"], y=abs_peak["r_squared"],
             text=f"Abs peak: lag {int(abs_peak['lag'])}",
@@ -417,10 +469,10 @@ else:
 
 
 # ============================================================
-# Section 4 — Asymmetric Response
+# Section 5 — Asymmetric Response
 # ============================================================
 st.markdown("---")
-st.header("4. Asymmetric Response")
+st.header("5. Asymmetric Response")
 st.markdown("""
 **Question**: Do investors react equally to gains and losses?
 
@@ -510,10 +562,10 @@ else:
 
 
 # ============================================================
-# Section 5 — Panel Regression (Robustness)
+# Section 6 — Panel Regression (Robustness)
 # ============================================================
 st.markdown("---")
-st.header("5. Panel Regression (Robustness)")
+st.header("6. Panel Regression (Robustness)")
 st.markdown("""
 **Question**: Are these findings robust across all 38 ETFs simultaneously?
 
@@ -599,54 +651,3 @@ with st.spinner("Running panel regressions (5 specifications)..."):
         st.error("Please install `linearmodels`: `pip install linearmodels>=6.0`")
     except Exception as e:
         st.error(f"Panel regression error: {e}")
-
-
-# ============================================================
-# Section 6 — Seasonality
-# ============================================================
-st.markdown("---")
-st.header("6. Seasonality")
-st.markdown("""
-**Question**: Are there calendar effects in fund flows?
-
-Some months (e.g., January) may see systematic reallocation. This section shows
-average daily flows by calendar month for the selected ETF, with a t-test
-comparing January to all other months.
-""")
-
-# Always use daily data for seasonality analysis
-@st.cache_data(show_spinner="Loading daily data for seasonality...")
-def load_daily_data(benchmark):
-    return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark=benchmark)
-
-daily_df = load_daily_data(benchmark)
-etf_daily = daily_df[daily_df["ETF"] == selected_etf]
-
-seasonal = seasonality_analysis(etf_daily, "Fund_Flow")
-
-if len(seasonal) > 0:
-    st.subheader(f"{selected_etf} — Average Flow by Month")
-    m_colors = ["#2ca02c" if m >= 0 else "#d62728" for m in seasonal["Mean"]]
-    fig_s = go.Figure(go.Bar(
-        x=seasonal["Month_Name"], y=seasonal["Mean"], marker_color=m_colors,
-        error_y=dict(type="data",
-                     array=seasonal["Std"] / seasonal["Count"] ** 0.5,
-                     visible=True),
-        hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
-    ))
-    fig_s.update_layout(height=380, yaxis_title="Avg Daily Flow ($M)",
-                        margin=dict(l=60, r=40, t=30, b=30))
-    fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-    st.plotly_chart(fig_s, use_container_width=True)
-
-    # January t-test
-    jan = etf_daily[etf_daily["Date"].dt.month == 1]["Fund_Flow"].dropna()
-    other = etf_daily[etf_daily["Date"].dt.month != 1]["Fund_Flow"].dropna()
-    if len(jan) > 5 and len(other) > 5:
-        t_stat, p_val = stats.ttest_ind(jan, other, equal_var=False)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Jan Avg ($M/day)", f"{jan.mean():.2f}")
-        c2.metric("Other Months Avg", f"{other.mean():.2f}")
-        c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
-else:
-    st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
