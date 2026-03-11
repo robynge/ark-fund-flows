@@ -8,8 +8,6 @@ logger = logging.getLogger(__name__)
 
 EXCEL_PATH = Path(__file__).parent.parent / "ARK ETF Fund Flows.xlsx"
 PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
-ARK_AUM_PATH = Path(__file__).parent.parent / "ARK ETF AUM.xlsx"
-PEER_AUM_PATH = Path(__file__).parent.parent / "Peers AUM.xlsx"
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
@@ -248,67 +246,6 @@ def add_market_benchmark(df: pd.DataFrame, return_col: str,
     return df
 
 
-def _clean_aum_column_name(col: str) -> str:
-    """Strip Bloomberg suffixes: 'ARKK US Equity' -> 'ARKK', 'ARKB US Equity  (L3)' -> 'ARKB'."""
-    col = col.split("(")[0].strip()  # remove (L3) etc.
-    for suffix in [" US Equity", " NA Equity"]:
-        col = col.replace(suffix, "")
-    return col.strip()
-
-
-def load_aum_data() -> pd.DataFrame:
-    """Load AUM data from ARK and Peers Excel files.
-
-    Returns long-form DataFrame: Date, ETF, AUM (in millions).
-    """
-    frames = []
-
-    for path, label in [(ARK_AUM_PATH, "ARK"), (PEER_AUM_PATH, "Peers")]:
-        if not path.exists():
-            logger.warning("AUM file not found: %s", path)
-            continue
-        raw = pd.read_excel(path, sheet_name="Sheet1")
-        raw["Date"] = pd.to_datetime(raw["Date"])
-        raw = raw.set_index("Date")
-        raw.columns = [_clean_aum_column_name(c) for c in raw.columns]
-        # Keep only known tickers
-        known = [c for c in raw.columns if c in ALL_ETF_NAMES]
-        raw = raw[known]
-        melted = raw.reset_index().melt(id_vars="Date", var_name="ETF", value_name="AUM")
-        frames.append(melted)
-
-    if not frames:
-        return pd.DataFrame(columns=["Date", "ETF", "AUM"])
-
-    aum = pd.concat(frames, ignore_index=True)
-    # Drop duplicates (prefer ARK file for ARK tickers, loaded first)
-    aum = aum.drop_duplicates(subset=["Date", "ETF"], keep="first")
-    aum = aum.dropna(subset=["AUM"])
-    return aum.sort_values(["ETF", "Date"]).reset_index(drop=True)
-
-
-def add_aum(df: pd.DataFrame, freq: str = "D") -> pd.DataFrame:
-    """Merge AUM data and compute Flow_Pct = Fund_Flow / AUM."""
-    aum = load_aum_data()
-    if aum.empty:
-        df = df.copy()
-        df["AUM"] = np.nan
-        df["Flow_Pct"] = np.nan
-        return df
-
-    if freq != "D":
-        # Aggregate AUM to period-end
-        aum = aum.set_index("Date")
-        aum = aum.groupby("ETF").resample(freq)["AUM"].last().reset_index()
-        aum = aum.dropna(subset=["AUM"])
-
-    df = df.merge(aum[["Date", "ETF", "AUM"]], on=["Date", "ETF"], how="left")
-
-    flow_col = "Flow_Sum" if freq != "D" else "Fund_Flow"
-    df["Flow_Pct"] = df[flow_col] / df["AUM"]
-    return df
-
-
 def get_prepared_data_with_peers(freq: str = "D",
                                   zscore_type: str = "full",
                                   benchmark: str = "SPY") -> pd.DataFrame:
@@ -332,7 +269,6 @@ def get_prepared_data_with_peers(freq: str = "D",
 
     df = add_source_flag(df)
     df = add_market_benchmark(df, return_col, benchmark=benchmark, freq=freq)
-    df = add_aum(df, freq=freq)
 
     if zscore_type == "full":
         df = add_zscore_columns(df, flow_col=flow_col, return_col=return_col)

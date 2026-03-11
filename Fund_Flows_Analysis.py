@@ -40,7 +40,6 @@ section's question, building a complete research narrative.
 4. **Absolute vs Relative Performance** — Own return vs market-relative return?
 5. **Asymmetric Response** — Do gains and losses trigger equal reactions?
 6. **Panel Regression** — Robustness check across all ETFs simultaneously
-7. **Comparative Flows** — Are ARK flows driven by sector-wide trends or fund-specific?
 """)
 
 # --- Sidebar ---
@@ -95,7 +94,6 @@ with st.sidebar:
     )
     benchmark_label = st.selectbox("Benchmark", list(BENCHMARK_OPTIONS.keys()))
     benchmark = BENCHMARK_OPTIONS[benchmark_label]
-    flow_metric = st.selectbox("Flow Metric", ["Raw ($)", "% of AUM"])
     selected_etf = st.selectbox(
         "Per-ETF View", ALL_ETF_NAMES, index=0,
         format_func=lambda x: f"{x} — {ETF_FULL_NAMES.get(x, x)}",
@@ -111,22 +109,13 @@ def load_peer_data(freq, benchmark):
 
 df = load_peer_data(freq, benchmark)
 
-use_pct = flow_metric == "% of AUM"
-# Fall back to raw flow if Flow_Pct column is missing or all-NaN
-if use_pct and ("Flow_Pct" not in df.columns or df["Flow_Pct"].notna().sum() == 0):
-    use_pct = False
-    st.sidebar.warning("AUM data unavailable — using raw dollar flows.")
-
 if freq == "D":
-    fc = "Flow_Pct" if use_pct else "Fund_Flow"
-    rc, fc_z, rc_z = "Return", "Fund_Flow_Z", "Return_Z"
+    fc, rc, fc_z, rc_z = "Fund_Flow", "Return", "Fund_Flow_Z", "Return_Z"
 else:
-    fc = "Flow_Pct" if use_pct else "Flow_Sum"
-    rc, fc_z, rc_z = "Return_Cum", "Flow_Sum_Z", "Return_Cum_Z"
+    fc, rc, fc_z, rc_z = "Flow_Sum", "Return_Cum", "Flow_Sum_Z", "Return_Cum_Z"
 
 exc_col = "Excess_Return"
 freq_label = {"D": "days", "W": "weeks", "ME": "months", "QE": "quarters"}[freq]
-flow_unit = "% AUM" if use_pct else "$M"
 
 # Filter to ETFs with enough flow data
 etfs_with_flows = df.groupby("ETF")[fc].apply(lambda x: x.notna().sum())
@@ -662,148 +651,3 @@ with st.spinner("Running panel regressions (5 specifications)..."):
         st.error("Please install `linearmodels`: `pip install linearmodels>=6.0`")
     except Exception as e:
         st.error(f"Panel regression error: {e}")
-
-
-# ============================================================
-# Section 7 — Comparative Flows
-# ============================================================
-st.markdown("---")
-st.header("7. Comparative Flows")
-st.markdown(f"""
-**Question**: Are ARK fund flows driven by sector-wide trends, or are they
-fund-specific?
-
-If the entire tech sector receives inflows, ARK may attract capital even when
-its relative performance is weak. This section compares ARK flows (as {flow_unit})
-against peer-group average flows to disentangle **sector momentum** from
-**fund-specific** capital allocation.
-""")
-
-# Need AUM data for this section
-has_aum = "AUM" in df_valid.columns and df_valid["AUM"].notna().any()
-if not has_aum and use_pct:
-    st.warning("AUM data not available — cannot compute % of AUM flows.")
-else:
-    # Compute peer-average flow per date
-    peer_only = df_valid[~df_valid["Is_ARK"]].copy()
-    peer_avg_flow = peer_only.groupby("Date")[fc].mean().reset_index()
-    peer_avg_flow.columns = ["Date", "Peer_Avg_Flow"]
-
-    ark_selected = df_valid[df_valid["ETF"] == selected_etf].copy()
-    ark_selected = ark_selected.merge(peer_avg_flow, on="Date", how="left")
-
-    if len(ark_selected) > 0 and ark_selected["Peer_Avg_Flow"].notna().any():
-        # 7a — Time series: ARK vs Peer average flows
-        st.subheader(f"{selected_etf} vs Peer Average — Flow Time Series")
-        fig_ts = go.Figure()
-        fig_ts.add_trace(go.Scatter(
-            x=ark_selected["Date"], y=ark_selected[fc],
-            name=selected_etf, mode="lines", line=dict(color="#1f77b4", width=1.5),
-        ))
-        fig_ts.add_trace(go.Scatter(
-            x=ark_selected["Date"], y=ark_selected["Peer_Avg_Flow"],
-            name="Peer Avg", mode="lines", line=dict(color="#aec7e8", width=1.5),
-        ))
-        fig_ts.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-        fig_ts.update_layout(
-            height=400, yaxis_title=f"Flow ({flow_unit})",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
-            margin=dict(l=60, r=30, t=40, b=30),
-        )
-        st.plotly_chart(fig_ts, use_container_width=True)
-
-        # 7b — Scatter: ARK flow vs Peer average flow
-        col_sc, col_cond = st.columns(2)
-
-        with col_sc:
-            st.subheader("Flow Co-movement")
-            scatter_df = ark_selected[[fc, "Peer_Avg_Flow"]].dropna()
-            if len(scatter_df) > 10:
-                corr, p_corr = stats.pearsonr(scatter_df[fc], scatter_df["Peer_Avg_Flow"])
-                fig_sc = px.scatter(
-                    scatter_df, x="Peer_Avg_Flow", y=fc, trendline="ols",
-                    labels={"Peer_Avg_Flow": f"Peer Avg Flow ({flow_unit})",
-                            fc: f"{selected_etf} Flow ({flow_unit})"},
-                )
-                fig_sc.update_layout(
-                    height=380, margin=dict(l=60, r=30, t=30, b=30),
-                )
-                st.plotly_chart(fig_sc, use_container_width=True)
-                st.caption(f"Correlation: {corr:.3f} (p = {p_corr:.4f})")
-            else:
-                st.info("Not enough overlapping data for scatter plot.")
-
-        # 7c — Conditional analysis: performance × sector flow
-        with col_cond:
-            st.subheader("Conditional Flow Analysis")
-            cond_df = ark_selected[[fc, "Peer_Avg_Flow", exc_col]].dropna()
-            if len(cond_df) > 20:
-                cond_df["Perf_Regime"] = np.where(
-                    cond_df[exc_col] >= 0, "Outperform", "Underperform")
-                cond_df["Sector_Regime"] = np.where(
-                    cond_df["Peer_Avg_Flow"] >= 0, "Sector Inflow", "Sector Outflow")
-
-                cond_table = cond_df.groupby(
-                    ["Perf_Regime", "Sector_Regime"]
-                ).agg(
-                    ARK_Flow=(fc, "mean"),
-                    Peer_Flow=("Peer_Avg_Flow", "mean"),
-                    Count=(fc, "count"),
-                ).reset_index()
-
-                # Display as formatted table
-                st.dataframe(
-                    cond_table.style.format({
-                        "ARK_Flow": "{:.4f}" if use_pct else "{:.2f}",
-                        "Peer_Flow": "{:.4f}" if use_pct else "{:.2f}",
-                    }),
-                    hide_index=True, use_container_width=True,
-                )
-                st.caption(
-                    "Key insight: When ARK underperforms AND sector has inflows, "
-                    "does ARK still attract capital (sector momentum)? "
-                    "When ARK underperforms AND sector has outflows, "
-                    "does ARK lose more than peers?"
-                )
-            else:
-                st.info("Not enough data for conditional analysis.")
-
-        # 7d — All ARK ETFs summary
-        st.subheader("All ARK ETFs: Flow Correlation with Peers")
-        ark_corr_rows = []
-        for etf in ETF_NAMES:
-            etf_data = df_valid[df_valid["ETF"] == etf].merge(
-                peer_avg_flow, on="Date", how="left")
-            valid_pair = etf_data[[fc, "Peer_Avg_Flow"]].dropna()
-            if len(valid_pair) > 10:
-                r, p = stats.pearsonr(valid_pair[fc], valid_pair["Peer_Avg_Flow"])
-                ark_corr_rows.append({
-                    "ETF": etf, "Correlation": r, "p-value": p,
-                    "N": len(valid_pair),
-                })
-        if ark_corr_rows:
-            ark_corr_df = pd.DataFrame(ark_corr_rows).sort_values(
-                "Correlation", ascending=False)
-
-            fig_corr = go.Figure(go.Bar(
-                x=ark_corr_df["ETF"], y=ark_corr_df["Correlation"],
-                marker_color=["#2ca02c" if p < 0.05 else "#c7c7c7"
-                              for p in ark_corr_df["p-value"]],
-                hovertemplate="ETF: %{x}<br>r: %{y:.3f}<extra></extra>",
-            ))
-            fig_corr.add_hline(y=0, line_dash="dash", line_color="gray")
-            fig_corr.update_layout(
-                height=350, yaxis_title="Correlation with Peer Avg Flow",
-                margin=dict(l=60, r=30, t=30, b=30),
-            )
-            st.plotly_chart(fig_corr, use_container_width=True)
-            st.caption("Green = significant at 5% level.")
-
-            st.dataframe(
-                ark_corr_df.style.format({
-                    "Correlation": "{:.3f}", "p-value": "{:.4f}",
-                }),
-                hide_index=True, use_container_width=True,
-            )
-    else:
-        st.warning(f"Not enough data for {selected_etf} comparative flow analysis.")
