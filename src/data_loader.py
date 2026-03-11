@@ -2,7 +2,6 @@
 import logging
 import pandas as pd
 import numpy as np
-import yfinance as yf
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -205,48 +204,16 @@ def add_peer_benchmark(df: pd.DataFrame, return_col: str,
     return df
 
 
-def load_market_benchmark(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
-    """Download SPY or QQQ daily data via yfinance, cache to CSV.
+def load_market_benchmark(ticker: str) -> pd.DataFrame:
+    """Load pre-downloaded SPY or QQQ benchmark data from data/{ticker}.csv.
 
     Returns DataFrame with columns: Date, Benchmark_Return (daily return).
     """
-    DATA_DIR.mkdir(exist_ok=True)
-    cache_path = DATA_DIR / f"{ticker}.csv"
-
-    if cache_path.exists():
-        cached = pd.read_csv(cache_path, parse_dates=["Date"])
-        cached_end = cached["Date"].max()
-        # Re-download if cache is more than 3 days stale
-        if cached_end >= pd.Timestamp(end_date) - pd.Timedelta(days=3):
-            return cached
-
-    logger.info("Downloading %s from yfinance...", ticker)
-    try:
-        t = yf.Ticker(ticker)
-        hist = t.history(start=start_date, end=end_date, auto_adjust=False)
-    except Exception as e:
-        logger.warning("yfinance download failed for %s: %s", ticker, e)
-        # Return stale cache if available, otherwise empty
-        if cache_path.exists():
-            return pd.read_csv(cache_path, parse_dates=["Date"])
+    csv_path = DATA_DIR / f"{ticker}.csv"
+    if not csv_path.exists():
+        logger.warning("Benchmark file not found: %s", csv_path)
         return pd.DataFrame(columns=["Date", "Benchmark_Return"])
-    if hist.empty:
-        logger.warning("No data returned for %s", ticker)
-        if cache_path.exists():
-            return pd.read_csv(cache_path, parse_dates=["Date"])
-        return pd.DataFrame(columns=["Date", "Benchmark_Return"])
-
-    bench = pd.DataFrame({
-        "Date": hist.index.tz_localize(None),
-        "Close": hist["Close"].values,
-    })
-    bench = bench.sort_values("Date").reset_index(drop=True)
-    bench["Benchmark_Return"] = bench["Close"].pct_change()
-    bench = bench[["Date", "Benchmark_Return"]].dropna()
-
-    bench.to_csv(cache_path, index=False)
-    logger.info("Cached %s data (%d rows) to %s", ticker, len(bench), cache_path)
-    return bench
+    return pd.read_csv(csv_path, parse_dates=["Date"])
 
 
 def add_market_benchmark(df: pd.DataFrame, return_col: str,
@@ -261,9 +228,7 @@ def add_market_benchmark(df: pd.DataFrame, return_col: str,
     if benchmark == "peer_avg":
         return add_peer_benchmark(df, return_col)
 
-    start_date = df["Date"].min().strftime("%Y-%m-%d")
-    end_date = (df["Date"].max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    bench = load_market_benchmark(benchmark, start_date, end_date)
+    bench = load_market_benchmark(benchmark)
 
     if bench.empty:
         logger.warning("No benchmark data for %s, falling back to peer average", benchmark)
