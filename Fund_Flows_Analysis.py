@@ -44,8 +44,6 @@ section's question, building a complete research narrative.
 """)
 
 # --- Sidebar ---
-BENCHMARK_OPTIONS = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}
-
 ETF_FULL_NAMES = {
     "ARKK": "ARK Innovation",
     "ARKF": "ARK Fintech Innovation",
@@ -95,8 +93,6 @@ with st.sidebar:
         format_func={"D": "Daily", "W": "Weekly", "ME": "Monthly", "QE": "Quarterly"}.get,
         index=2,
     )
-    benchmark_label = st.selectbox("Benchmark", list(BENCHMARK_OPTIONS.keys()))
-    benchmark = BENCHMARK_OPTIONS[benchmark_label]
     flow_unit_label = st.selectbox("Flow Unit", list(FLOW_UNIT_OPTIONS.keys()))
     flow_unit = FLOW_UNIT_OPTIONS[flow_unit_label]
     selected_etf = st.selectbox(
@@ -112,7 +108,7 @@ def load_peer_data(freq, benchmark):
     return get_prepared_data_with_peers(freq=freq, zscore_type="full", benchmark=benchmark)
 
 
-df = load_peer_data(freq, benchmark)
+df = load_peer_data(freq, "peer_avg")
 
 if freq == "D":
     fc_raw, rc = "Fund_Flow", "Return"
@@ -467,10 +463,10 @@ they are.
 
 # Always use daily data for seasonality analysis
 @st.cache_data(show_spinner="Loading daily data for seasonality...")
-def load_daily_data(benchmark):
-    return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark=benchmark)
+def load_daily_data():
+    return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark="peer_avg")
 
-daily_df = load_daily_data(benchmark)
+daily_df = load_daily_data()
 etf_daily = daily_df[daily_df["ETF"] == selected_etf]
 
 daily_fc = "Flow_Pct" if flow_unit == "pct" and "Flow_Pct" in daily_df.columns and daily_df["Flow_Pct"].notna().any() else "Fund_Flow"
@@ -511,9 +507,22 @@ else:
 # ============================================================
 st.markdown("---")
 st.header("5. Absolute vs Relative Performance")
+
 _bench_desc = {
     "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
 }
+benchmark = st.radio(
+    "Benchmark for excess return",
+    ["SPY", "QQQ", "Peer Average"],
+    horizontal=True, index=2,
+    key="sec5_benchmark",
+)
+benchmark = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}[benchmark]
+
+# Load data with selected benchmark (cached per benchmark)
+df_bench = load_peer_data(freq, benchmark)
+df_bench_valid = df_bench[df_bench["ETF"].isin(valid_etfs)].copy()
+
 st.markdown(f"""
 **Question**: Do investors react to the fund's own return, or how it performed
 relative to the market?
@@ -530,7 +539,7 @@ than raw return.
 """)
 
 # Per-ETF: R² by lag, absolute vs excess
-etf_df_sec4 = df_valid[df_valid["ETF"] == selected_etf]
+etf_df_sec4 = df_bench_valid[df_bench_valid["ETF"] == selected_etf]
 if len(etf_df_sec4) > 0 and not etf_df_sec4[exc_col].dropna().empty:
     n_obs4 = len(etf_df_sec4[fc].dropna())
     max_lag4 = max(1, min(n_obs4 // 2, 24))
@@ -577,7 +586,7 @@ if len(etf_df_sec4) > 0 and not etf_df_sec4[exc_col].dropna().empty:
 
 # All ETFs bar chart
 with st.spinner("Running relative performance regressions..."):
-    rp_summary = relative_performance_all_etfs(df_valid, fc, rc, exc_col)
+    rp_summary = relative_performance_all_etfs(df_bench_valid, fc, rc, exc_col)
 
 if len(rp_summary) > 0:
     rp_summary["Source"] = rp_summary["ETF"].apply(
@@ -710,7 +719,19 @@ else:
 # ============================================================
 st.markdown("---")
 st.header("7. Panel Regression (Robustness)")
-st.markdown("""
+
+benchmark_panel = st.radio(
+    "Benchmark for excess return",
+    ["SPY", "QQQ", "Peer Average"],
+    horizontal=True, index=2,
+    key="sec7_benchmark",
+)
+benchmark_panel = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}[benchmark_panel]
+
+df_panel_bench = load_peer_data(freq, benchmark_panel)
+df_panel_bench_valid = df_panel_bench[df_panel_bench["ETF"].isin(valid_etfs)].copy()
+
+st.markdown(f"""
 **Question**: Are these findings robust across all 38 ETFs simultaneously?
 
 Instead of separate regressions per ETF, we stack all ETFs into one panel regression.
@@ -718,11 +739,11 @@ Five specifications from simplest to most controlled:
 - **Pooled OLS** — ignores ETF identity
 - **Entity FE** — controls for each ETF's baseline flow level
 - **Entity+Time FE** — also controls for market-wide time trends
-- **Entity FE + Excess** — adds relative performance
+- **Entity FE + Excess** — adds relative performance (benchmark: **{_bench_desc[benchmark_panel]}**)
 - **Entity FE + Controls** — adds rolling volatility
 """)
 
-panel_df = df_valid.dropna(subset=[fc, rc])
+panel_df = df_panel_bench_valid.dropna(subset=[fc, rc])
 
 with st.spinner("Running panel regressions (5 specifications)..."):
     try:
