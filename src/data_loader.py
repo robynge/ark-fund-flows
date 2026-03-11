@@ -221,10 +221,19 @@ def load_market_benchmark(ticker: str, start_date: str, end_date: str) -> pd.Dat
             return cached
 
     logger.info("Downloading %s from yfinance...", ticker)
-    t = yf.Ticker(ticker)
-    hist = t.history(start=start_date, end=end_date, auto_adjust=False)
+    try:
+        t = yf.Ticker(ticker)
+        hist = t.history(start=start_date, end=end_date, auto_adjust=False)
+    except Exception as e:
+        logger.warning("yfinance download failed for %s: %s", ticker, e)
+        # Return stale cache if available, otherwise empty
+        if cache_path.exists():
+            return pd.read_csv(cache_path, parse_dates=["Date"])
+        return pd.DataFrame(columns=["Date", "Benchmark_Return"])
     if hist.empty:
         logger.warning("No data returned for %s", ticker)
+        if cache_path.exists():
+            return pd.read_csv(cache_path, parse_dates=["Date"])
         return pd.DataFrame(columns=["Date", "Benchmark_Return"])
 
     bench = pd.DataFrame({
