@@ -303,6 +303,7 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
         hovermode="x unified", xaxis_rangeslider_visible=True,
+        xaxis_hoverformat="%b %Y",
     )
     # Annotate top inflow and top outflow months
     flow_series = etf_ts_s1[[fc, "Date"]].dropna(subset=[fc])
