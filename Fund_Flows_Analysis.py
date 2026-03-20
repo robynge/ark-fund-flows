@@ -26,30 +26,13 @@ from scipy import stats
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.title("Do ETF Investors Chase Past Performance?")
 
-with st.expander("About this dashboard"):
-    st.markdown("""
+st.markdown("""
 This dashboard investigates whether ETF investors chase past performance across
-**38 tech ETFs** (9 ARK + 29 peers). Each section's conclusion raises the next
-section's question, building a complete research narrative.
-
-**Data sources**:
-- **Fund flows**: Bloomberg daily fund flow data for 9 ARK ETFs and 29 tech peer
-  ETFs, covering 2014–2026.
-- **Prices**: Bloomberg daily OHLCV price data for all 38 ETFs.
-- **AUM**: Bloomberg total net assets (monthly) for all 38 ETFs, used to normalize
-  flows as a percentage of assets under management.
-- **Benchmarks**: SPY (S&P 500) and QQQ (Nasdaq-100) daily returns from Yahoo
-  Finance; peer-group average computed cross-sectionally from the 38 ETFs.
-
-**Sections**:
-1. **Fund Flow Distribution** — What does a typical flow look like? What's big vs small?
-2. **Does Performance Chasing Exist?** — Do past returns predict future flows?
-3. **Drawdown Analysis** — How do flows behave after major drawdowns?
-4. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
-5. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
-6. **Absolute vs Relative Performance** — Own return vs market-relative return?
-7. **Asymmetric Response** — Do gains and losses trigger equal reactions?
-8. **Panel Regression** — Robustness check across all ETFs simultaneously
+**38 tech ETFs** (9 ARK + 29 tech peers). We use Bloomberg daily net fund flow
+(creation/redemption) data, daily OHLCV prices, and monthly total net assets (AUM)
+covering 2014–2026. Benchmarks include SPY (S&P 500), QQQ (Nasdaq-100), and a
+cross-sectional peer-group average. When expressed as % of AUM, flows are computed
+as the aggregate flow over the period divided by beginning-of-period AUM × 100.
 """)
 
 # --- Sidebar ---
@@ -184,11 +167,6 @@ This section characterizes the **empirical distribution of net fund flows** acro
 before any regression analysis — it defines what constitutes a "normal" vs
 "extreme" flow event and reveals whether ARK funds differ structurally from peers.
 """)
-st.caption(
-    "**Data**: Bloomberg daily net fund flows (creation/redemption), daily OHLCV prices, "
-    "and monthly total net assets (AUM) for 9 ARK + 29 tech peer ETFs, 2014–2026. "
-    "Flow % of AUM = aggregate flow over the period ÷ beginning-of-period AUM × 100."
-)
 
 # --- Per-ETF histogram + stats ---
 etf_dist = df_valid[df_valid["ETF"] == selected_etf][fc].dropna()
