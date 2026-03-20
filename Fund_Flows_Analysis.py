@@ -35,7 +35,8 @@ This dashboard investigates whether ETF investors chase past performance across
 **38 tech ETFs** (9 ARK + 29 tech peers). We use Bloomberg daily net fund flow
 (creation/redemption) data, daily OHLCV prices, and monthly total net assets (AUM)
 covering 2014–2026. Benchmarks include SPY (S&P 500), QQQ (Nasdaq-100), and a
-cross-sectional peer-group average. When expressed as % of AUM, flows are computed
+peer-group average (equal-weighted cross-sectional mean return of all tech peer ETFs on each
+date; dates with fewer than 10 reporting ETFs are excluded). When expressed as % of AUM, flows are computed
 as the aggregate flow over the period divided by beginning-of-period AUM × 100.
 """)
 
@@ -279,6 +280,22 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
     )
+    # Annotate top inflow and top outflow months
+    flow_series = etf_ts_s1[[fc, "Date"]].dropna(subset=[fc])
+    if len(flow_series) > 0:
+        idx_max = flow_series[fc].idxmax()
+        idx_min = flow_series[fc].idxmin()
+        for idx, label_prefix in [(idx_max, "Peak inflow"), (idx_min, "Peak outflow")]:
+            dt = flow_series.loc[idx, "Date"]
+            val = flow_series.loc[idx, fc]
+            fig_dual.add_annotation(
+                x=dt, y=val, secondary_y=False,
+                text=f"{label_prefix}<br>{dt.strftime('%Y-%m')}: {val:,.1f}",
+                showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=1,
+                ax=0, ay=-35 if val >= 0 else 35,
+                font=dict(size=10),
+                bgcolor="rgba(255,255,255,0.8)", bordercolor="gray", borderpad=3,
+            )
     st.plotly_chart(fig_dual, width="stretch")
     st.caption(
         "Excess return = ETF return − benchmark return in the same period. "
@@ -344,7 +361,8 @@ if len(all_stats_df) > 0:
         )
         st.plotly_chart(fig_vol, width="stretch")
         st.caption(
-            "ETFs with high flow σ experience more extreme inflow/outflow episodes, "
+            "Flow volatility = standard deviation of period-level net fund flows across the full sample for each ETF. "
+            "Higher σ implies more extreme inflow/outflow episodes, "
             "likely reflecting higher retail ownership, media attention, or concentrated investor bases."
         )
 
@@ -450,7 +468,9 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_cc, width="stretch")
             st.caption(
-                "Pearson correlation corr(z-flow(t), z-return(t−k)) at each lag k. "
+                "Unlike the R² profile (left panel), this is not a regression — it shows the raw "
+                "Pearson correlation between z-scored flows and z-scored returns at each lag. "
+                "corr(z-flow(t), z-return(t−k)) at each lag k. "
                 "**Positive lags** (right): does past return predict current flow? "
                 "**Negative lags** (left): does current flow predict future return? "
                 "Bars exceeding the dashed confidence band (±1.96/√N) are significant at the 5% level."
@@ -464,7 +484,10 @@ if len(etf_df) > 0:
         f"{n_valid} ETFs with sufficient data ({n_ark} ARK + {n_peer} peers). "
         "Peak Lag = the lag k* that maximizes R². F-stat tests H₀: β=0 (the slope is zero); "
         "a large F-stat means the relationship is statistically distinguishable from zero even if R² is low. "
-        "Peak p-value = two-sided p-value for the slope coefficient at the optimal lag."
+        "Peak p-value = two-sided p-value for the slope coefficient at the optimal lag. "
+        "Note: R² below 5% is typical in fund-flow prediction — flows are inherently noisy. "
+        "The F-statistic is a more appropriate test: a large F (small p) confirms the relationship is "
+        "statistically real even when R² is modest."
     )
 
     @st.cache_data(show_spinner="Computing R² profiles...")
@@ -663,6 +686,7 @@ if len(all_r2) > 0:
     st.plotly_chart(fig_hm, width="stretch")
     st.caption(
         "Each cell: R² from OLS Flow(t) = α + β·Return(t−k) + ε. ★ = ARK ETF. "
+        "Warmer colors (darker red) = higher R². "
         "A bright vertical band at one lag across many ETFs indicates a common chasing horizon; "
         "scattered bright cells suggest heterogeneous investor behavior across funds."
     )
