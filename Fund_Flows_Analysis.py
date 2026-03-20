@@ -181,47 +181,20 @@ if len(etf_dist) > 0:
 
     with col_hist:
         st.subheader(f"{selected_etf}: Flow Distribution")
-        fig_dist = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_dist = go.Figure()
         fig_dist.add_trace(go.Histogram(
-            x=etf_dist, nbinsx=30,
-            marker_color="#1f77b4", opacity=0.85,
-            marker_line_color="black", marker_line_width=0.8,
-            name="Count",
+            x=etf_dist, nbinsx=50,
+            marker_color="#1f77b4", opacity=0.8,
             hovertemplate="Range: %{x}<br>Count: %{y}<extra></extra>",
-        ), secondary_y=False)
-        # KDE overlay
-        from scipy.stats import gaussian_kde
-        kde_x = np.linspace(etf_dist.min(), etf_dist.max(), 200)
-        kde = gaussian_kde(etf_dist)
-        kde_y = kde(kde_x)
-        fig_dist.add_trace(go.Scatter(
-            x=kde_x, y=kde_y, mode="lines", name="KDE",
-            line=dict(color="#1f77b4", width=2.5),
-            hoverinfo="skip",
-        ), secondary_y=True)
+        ))
         fig_dist.add_vline(x=etf_dist.median(), line_dash="dash",
                            line_color="red", opacity=0.7,
                            annotation_text="Median",
                            annotation_position="top right")
         fig_dist.add_vline(x=0, line_color="gray", opacity=0.4)
         fig_dist.update_layout(
-            height=380, margin=dict(l=60, r=30, t=30, b=30),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, bgcolor="rgba(0,0,0,0)"),
-            plot_bgcolor="white",
-        )
-        fig_dist.update_xaxes(
-            title_text=flow_ylabel,
-            showline=True, linewidth=2, linecolor="black",
-            showgrid=False, zeroline=False,
-        )
-        fig_dist.update_yaxes(
-            title_text="Count", secondary_y=False,
-            showline=True, linewidth=2, linecolor="black",
-            showgrid=True, gridcolor="rgba(200,200,200,0.4)", gridwidth=0.5,
-        )
-        fig_dist.update_yaxes(
-            title_text="", secondary_y=True,
-            showticklabels=False, showgrid=False, showline=False,
+            height=380, xaxis_title=flow_ylabel, yaxis_title="Count",
+            margin=dict(l=60, r=30, t=30, b=30),
         )
         st.plotly_chart(fig_dist, width="stretch")
         st.caption(
