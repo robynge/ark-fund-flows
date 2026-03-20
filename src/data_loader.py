@@ -278,7 +278,8 @@ def load_aum_data() -> pd.DataFrame:
 def merge_aum(df: pd.DataFrame, freq: str = "D") -> pd.DataFrame:
     """Merge AUM onto the main DataFrame and compute Flow_Pct = Fund_Flow / AUM.
 
-    For aggregated frequencies, AUM is the last value in each period.
+    For aggregated frequencies, AUM is the first value in each period
+    (beginning-of-period AUM) to avoid endogeneity with current-period flows.
     Flow_Pct is expressed as a percentage (×100).
     """
     aum = load_aum_data()
@@ -289,9 +290,9 @@ def merge_aum(df: pd.DataFrame, freq: str = "D") -> pd.DataFrame:
         return df
 
     if freq != "D":
-        # Aggregate AUM to matching frequency: use last available value per period
+        # Aggregate AUM to matching frequency: use first available value per period
         aum = aum.set_index("Date")
-        aum_agg = aum.groupby("ETF").resample(freq)["AUM"].last().reset_index()
+        aum_agg = aum.groupby("ETF").resample(freq)["AUM"].first().reset_index()
         aum = aum_agg.dropna(subset=["AUM"])
 
     df = df.merge(aum[["Date", "ETF", "AUM"]], on=["Date", "ETF"], how="left")
