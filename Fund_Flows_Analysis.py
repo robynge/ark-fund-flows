@@ -784,6 +784,8 @@ if len(seasonal) > 0:
     daily_ylabel = "Avg Daily Flow (% AUM)" if daily_fc == "Flow_Pct" else "Avg Daily Flow ($M)"
     fig_s.update_layout(height=380, yaxis_title=daily_ylabel,
                         margin=dict(l=60, r=40, t=30, b=30))
+    if daily_fc == "Flow_Pct":
+        fig_s.update_yaxes(ticksuffix="%")
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
     st.plotly_chart(fig_s, width="stretch")
     st.caption(
