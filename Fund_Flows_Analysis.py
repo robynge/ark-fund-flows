@@ -842,9 +842,9 @@ if len(seasonal) > 0:
             fig_io.update_yaxes(ticksuffix="%")
         st.plotly_chart(fig_io, width="stretch")
         st.caption(
-            "Conditional on flow direction: average magnitude of net-inflow months vs net-outflow months per calendar month. "
-            "This isolates whether seasonal patterns are driven by larger inflows, larger outflows, or both. "
-            "A deeper outflow bar in December = heavier selling in outflow months, consistent with tax-loss harvesting."
+            "For each calendar month, daily flows are first summed into one total per year "
+            "(e.g. 12 January totals from 2014–2025); the green bar is the mean of the positive totals "
+            "(net-inflow years) and the red bar is the mean of the negative totals (net-outflow years)."
         )
 else:
     st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
