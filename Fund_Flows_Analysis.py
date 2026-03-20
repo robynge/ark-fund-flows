@@ -24,14 +24,6 @@ from analysis import (
 from scipy import stats
 
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
-
-# Shrink st.metric value font size
-st.markdown("""
-<style>
-[data-testid="stMetricValue"] { font-size: 1.1rem; }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("Do ETF Investors Chase Past Performance?")
 
 st.markdown("""
@@ -218,11 +210,10 @@ if len(etf_dist) > 0:
             lambda v: f"{v:.4f}" if abs(v) < 1 else f"{v:.2f}")
         st.dataframe(pct_df_display, hide_index=True, width="stretch")
 
-        mc1, mc2, mc3, mc4 = st.columns(4)
-        mc1.metric("Mean", f"{etf_dist.mean():.2f}")
-        mc2.metric("Std Dev", f"{etf_dist.std():.2f}")
-        mc3.metric("Skewness", f"{etf_dist.skew():.2f}")
-        mc4.metric("N", f"{len(etf_dist):,}")
+        st.metric("Mean", f"{etf_dist.mean():.2f}")
+        st.metric("Std Dev", f"{etf_dist.std():.2f}")
+        st.metric("Skewness", f"{etf_dist.skew():.2f}")
+        st.metric("Observations", f"{len(etf_dist):,}")
 
 # --- Monthly time series: flow bars + excess return line ---
 etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
