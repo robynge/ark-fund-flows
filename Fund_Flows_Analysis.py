@@ -86,7 +86,7 @@ ETF_FULL_NAMES = {
 
 FLOW_UNIT_OPTIONS = {"Raw $ (millions)": "raw", "% of AUM": "pct"}
 
-TIME_RANGE_OPTIONS = ["All Time", "Last 5 Years", "Since Pandemic (2020-03)", "Custom"]
+TIME_RANGE_OPTIONS = ["From 2014-10-31", "Last 5 Years", "Since Pandemic (2020-03)", "Custom"]
 
 with st.sidebar:
     freq = st.selectbox(
