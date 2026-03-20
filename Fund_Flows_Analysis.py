@@ -1145,20 +1145,22 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                 fe_df = fe_result["entity_effects"].sort_values("Fixed_Effect")
                 fe_df["Source"] = fe_df["ETF"].apply(
                     lambda x: "ARK" if x in ETF_NAMES else "Tech Peers")
-                colors = fe_df["Source"].map({"ARK": "#1f77b4", "Tech Peers": "#aec7e8"})
-
-                fig_fe = go.Figure(go.Bar(
-                    x=fe_df["ETF"], y=fe_df["Fixed_Effect"],
-                    marker_color=colors,
-                    text=fe_df["Source"],
-                    hovertemplate="ETF: %{x}<br>α_i: %{y:.2f}<br>%{text}<extra></extra>",
-                ))
+                fig_fe = go.Figure()
+                for source, color in [("ARK", "#1f77b4"), ("Tech Peers", "#aec7e8")]:
+                    subset = fe_df[fe_df["Source"] == source]
+                    fig_fe.add_trace(go.Bar(
+                        x=subset["ETF"], y=subset["Fixed_Effect"],
+                        marker_color=color, name=source,
+                        hovertemplate="ETF: %{x}<br>α_i: %{y:.2f}<extra></extra>",
+                    ))
                 fig_fe.add_hline(y=0, line_dash="dash", line_color="gray")
                 fig_fe.update_layout(
                     height=400,
                     yaxis_title="Fixed Effect (α_i)",
                     xaxis_tickangle=-45,
                     margin=dict(l=60, r=30, t=30, b=80),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    barmode="relative",
                 )
                 st.plotly_chart(fig_fe, width="stretch")
 
