@@ -127,9 +127,13 @@ def load_peer_data(freq, benchmark):
 
 df = load_peer_data(freq, "peer_avg")
 
+# Global floor: earliest ARK ETF inception date (ARKK/ARKG: 2014-10-31)
+ARK_START = pd.Timestamp("2014-10-31")
+df = df[df["Date"] >= ARK_START]
+
 # Apply global time filter
 if date_start is not None and date_end is not None:
-    _start = pd.Timestamp(date_start)
+    _start = max(pd.Timestamp(date_start), ARK_START)
     _end = pd.Timestamp(date_end)
     df = df[(df["Date"] >= _start) & (df["Date"] <= _end)]
 
@@ -657,10 +661,11 @@ def load_daily_data():
     return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark="peer_avg")
 
 daily_df = load_daily_data()
+daily_df = daily_df[daily_df["Date"] >= ARK_START]
 
 # Apply time filter to daily data
 if date_start is not None and date_end is not None:
-    daily_df = daily_df[(daily_df["Date"] >= pd.Timestamp(date_start)) & (daily_df["Date"] <= pd.Timestamp(date_end))]
+    daily_df = daily_df[(daily_df["Date"] >= max(pd.Timestamp(date_start), ARK_START)) & (daily_df["Date"] <= pd.Timestamp(date_end))]
 
 etf_daily = daily_df[daily_df["ETF"] == selected_etf]
 

@@ -84,8 +84,12 @@ def load_peer_data(freq, benchmark):
 
 df = load_peer_data(freq, "peer_avg")
 
+# Global floor: earliest ARK ETF inception date (ARKK/ARKG: 2014-10-31)
+ARK_START = pd.Timestamp("2014-10-31")
+df = df[df["Date"] >= ARK_START]
+
 if date_start is not None and date_end is not None:
-    _start = pd.Timestamp(date_start)
+    _start = max(pd.Timestamp(date_start), ARK_START)
     _end = pd.Timestamp(date_end)
     df = df[(df["Date"] >= _start) & (df["Date"] <= _end)]
 
