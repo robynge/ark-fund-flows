@@ -213,7 +213,7 @@ if len(etf_dist) > 0:
             height=380, xaxis_title=flow_ylabel, yaxis_title="Count",
             margin=dict(l=60, r=30, t=30, b=30),
         )
-        st.plotly_chart(fig_dist, use_container_width=True)
+        st.plotly_chart(fig_dist, width="stretch")
         st.caption(
             f"Histogram of {freq_label}ly net fund flows for {selected_etf} over the full sample period. "
             "Red dashed line = median. The distribution's skewness indicates whether "
@@ -231,7 +231,7 @@ if len(etf_dist) > 0:
         pct_df_display = pct_df.copy()
         pct_df_display["Value"] = pct_df_display["Value"].map(
             lambda v: f"{v:.4f}" if abs(v) < 1 else f"{v:.2f}")
-        st.dataframe(pct_df_display, hide_index=True, use_container_width=True)
+        st.dataframe(pct_df_display, hide_index=True, width="stretch")
 
         st.metric("Mean", f"{etf_dist.mean():.2f}")
         st.metric("Std Dev", f"{etf_dist.std():.2f}")
@@ -276,7 +276,7 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
     )
-    st.plotly_chart(fig_dual, use_container_width=True)
+    st.plotly_chart(fig_dual, width="stretch")
     st.caption(
         f"Time series of {selected_etf} net flows (bars, left axis) and excess return vs {bench_s1} "
         "(line, right axis) at the selected frequency. Green bars = net inflows; red bars = net outflows. "
@@ -320,7 +320,7 @@ if len(all_stats_df) > 0:
         )
         fig_box_dist.update_layout(height=380, yaxis_title=flow_ylabel,
                                    showlegend=False)
-        st.plotly_chart(fig_box_dist, use_container_width=True)
+        st.plotly_chart(fig_box_dist, width="stretch")
         st.caption(
             "Box-and-whisker plot of pooled flow observations. Box spans P25–P75 (interquartile range); "
             "line inside = median. Whiskers extend to 1.5× IQR. Wider boxes indicate greater flow dispersion."
@@ -340,7 +340,7 @@ if len(all_stats_df) > 0:
             xaxis_tickangle=-45,
             margin=dict(l=60, r=30, t=40, b=80),
         )
-        st.plotly_chart(fig_vol, use_container_width=True)
+        st.plotly_chart(fig_vol, width="stretch")
         st.caption(
             "Standard deviation of net flows per ETF — a measure of flow volatility. "
             "Higher σ implies more unpredictable investor behavior and larger tail events."
@@ -353,7 +353,7 @@ if len(all_stats_df) > 0:
             "Mean": "{:.2f}", "Median": "{:.2f}", "Std": "{:.2f}",
             "P5": "{:.2f}", "P95": "{:.2f}", "Skew": "{:.2f}",
         }),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
 
@@ -406,7 +406,7 @@ if len(etf_df) > 0:
                 height=380, xaxis_title=f"Lag ({freq_label})",
                 yaxis_title="R²", margin=dict(l=60, r=30, t=30, b=30),
             )
-            st.plotly_chart(fig_r2, use_container_width=True)
+            st.plotly_chart(fig_r2, width="stretch")
             st.caption(
                 "Each point = R² from a separate OLS regression of current-period flow on the return "
                 f"lagged by k {freq_label}. The peak identifies the horizon at which past returns have "
@@ -446,7 +446,7 @@ if len(etf_df) > 0:
                 yaxis_title="Correlation",
                 margin=dict(l=60, r=30, t=30, b=30),
             )
-            st.plotly_chart(fig_cc, use_container_width=True)
+            st.plotly_chart(fig_cc, width="stretch")
             st.caption(
                 "Sample Pearson correlation between z-scored flow(t) and z-scored return(t−k). "
                 "**Positive lags (right half)**: does past return predict current flow? A positive green bar = "
@@ -491,7 +491,7 @@ if len(etf_df) > 0:
             summary_df.style.format({
                 "Peak R²": "{:.4f}", "F-stat": "{:.2f}", "Peak p-value": "{:.4f}",
             }),
-            hide_index=True, use_container_width=True,
+            hide_index=True, width="stretch",
         )
 else:
     st.warning(f"No data for {selected_etf}.")
@@ -549,7 +549,7 @@ if len(dd_all) > 0:
             title=f"{selected_etf}: Price Index with Drawdown Periods",
             margin=dict(l=60, r=30, t=40, b=30),
         )
-        st.plotly_chart(fig_dd_price, use_container_width=True)
+        st.plotly_chart(fig_dd_price, width="stretch")
         st.caption(
             f"Cumulative-return price index for {selected_etf} (base = 100 at start of sample). "
             "Red-shaded regions = identified drawdown episodes (non-overlapping, deepest-first, ≥ 10% decline). "
@@ -575,7 +575,7 @@ if len(dd_all) > 0:
                     yaxis_title=f"Cumulative Flow 1m ({flow_ylabel})",
                     showlegend=False,
                 )
-                st.plotly_chart(fig_scat, use_container_width=True)
+                st.plotly_chart(fig_scat, width="stretch")
                 st.caption(
                     "Each dot = one drawdown episode (across all ETFs). X-axis: drawdown depth (more negative = deeper). "
                     "Y-axis: total net flow in the 1 month after the trough. A negative slope = deeper drawdowns followed by larger outflows."
@@ -593,7 +593,7 @@ if len(dd_all) > 0:
                     yaxis_title=f"Cumulative Flow 3m ({flow_ylabel})",
                     showlegend=False,
                 )
-                st.plotly_chart(fig_scat3, use_container_width=True)
+                st.plotly_chart(fig_scat3, width="stretch")
                 st.caption(
                     "Same as left panel but with a 3-month forward window. Longer horizons capture delayed investor reactions."
                 )
@@ -615,7 +615,7 @@ if len(dd_all) > 0:
                     "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}",
                     "R²": "{:.4f}",
                 }),
-                hide_index=True, use_container_width=True,
+                hide_index=True, width="stretch",
             )
     else:
         st.info("Not enough post-drawdown flow data for analysis.")
@@ -660,7 +660,7 @@ if len(all_r2) > 0:
         height=max(450, len(pivot) * 20),
         margin=dict(l=100, r=30, t=30, b=40),
     )
-    st.plotly_chart(fig_hm, use_container_width=True)
+    st.plotly_chart(fig_hm, width="stretch")
     st.caption(
         "Each cell = R² from OLS: Flow(t) = α + β·Return(t−k) + ε for one ETF at one lag k. "
         "Brighter = higher R² = stronger univariate predictive power. ★ = ARK ETF. "
@@ -681,7 +681,7 @@ if len(all_r2) > 0:
             title="Peak Lag Distribution",
         )
         fig_pk.update_layout(height=300, xaxis_title=f"Peak Lag ({freq_label})")
-        st.plotly_chart(fig_pk, use_container_width=True)
+        st.plotly_chart(fig_pk, width="stretch")
         st.caption(
             f"Distribution of optimal lag k* across ETFs. If clustered at lag 1, investors react within one {freq_label[:-1]}. "
             "A wider spread implies heterogeneous investor horizons."
@@ -695,7 +695,7 @@ if len(all_r2) > 0:
             points="all",
         )
         fig_box.update_layout(height=300, yaxis_title="Peak R²", showlegend=False)
-        st.plotly_chart(fig_box, use_container_width=True)
+        st.plotly_chart(fig_box, width="stretch")
         st.caption(
             "Peak R² at the optimal lag, compared between ARK and peer ETFs. "
             "Higher values = past returns explain a larger share of flow variation for that ETF."
@@ -746,7 +746,7 @@ if len(seasonal) > 0:
     fig_s.update_layout(height=380, yaxis_title=daily_ylabel,
                         margin=dict(l=60, r=40, t=30, b=30))
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-    st.plotly_chart(fig_s, use_container_width=True)
+    st.plotly_chart(fig_s, width="stretch")
     st.caption(
         "Mean daily flow by calendar month, averaged across all years in the sample. "
         "Error bars = ± one standard error (σ/√N). Green = months with average net inflow; "
@@ -790,7 +790,7 @@ if len(seasonal) > 0:
             margin=dict(l=60, r=40, t=40, b=30),
         )
         fig_io.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
-        st.plotly_chart(fig_io, use_container_width=True)
+        st.plotly_chart(fig_io, width="stretch")
         st.caption(
             "Conditional averages: green = mean flow on inflow days (flow > 0); red = mean flow on outflow "
             "days (flow < 0), computed separately per calendar month. This isolates whether seasonal patterns "
@@ -884,7 +884,7 @@ if len(etf_df_sec6) > 0 and not etf_df_sec6[exc_col].dropna().empty:
             hovermode="x unified",
             margin=dict(l=60, r=30, t=40, b=30),
         )
-        st.plotly_chart(fig_cmp, use_container_width=True)
+        st.plotly_chart(fig_cmp, width="stretch")
         st.caption(
             "R² profiles for two univariate regressions: (1) Flow ~ own Return(t−k), (2) Flow ~ ExcessReturn(t−k). "
             "If the orange (excess) curve lies above the blue (absolute) curve, investors respond more to relative "
@@ -915,7 +915,7 @@ if len(rp_summary) > 0:
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=30, t=30, b=80),
     )
-    st.plotly_chart(fig_rp, use_container_width=True)
+    st.plotly_chart(fig_rp, width="stretch")
     st.caption(
         "Grouped bar chart: R² from three OLS models per ETF using automatically selected lags. "
         "Blue = absolute return only; orange = excess return only; green = both combined. "
@@ -933,7 +933,7 @@ if len(rp_summary) > 0:
         rp_summary[display_cols]
         .sort_values("R²_Combined", ascending=False)
         .style.format(fmt),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 else:
     st.warning("Not enough data for relative performance analysis.")
@@ -985,7 +985,7 @@ if len(asym_summary) > 0:
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=30, t=30, b=80),
     )
-    st.plotly_chart(fig_asym, use_container_width=True)
+    st.plotly_chart(fig_asym, width="stretch")
     st.caption(
         "Green = average β⁺ (gain-chasing coefficient); red = |average β⁻| (loss-fleeing coefficient, shown as absolute value). "
         "If green > red for an ETF, investors react more to positive past returns than to negative ones."
@@ -1000,7 +1000,7 @@ if len(asym_summary) > 0:
             "Beta_Pos": "{:.2f}", "Beta_Neg": "{:.2f}",
             "Asymmetry_Ratio": "{:.2f}", "Wald_P": "{:.4f}", "R²": "{:.4f}",
         }),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
     # Per-ETF coefficient CI plot
@@ -1030,7 +1030,7 @@ if len(asym_summary) > 0:
                 title=f"{selected_etf}: Asymmetric Coefficients with 95% CI",
                 yaxis_title="Coefficient",
             )
-            st.plotly_chart(fig_ci, use_container_width=True)
+            st.plotly_chart(fig_ci, width="stretch")
 
             c1, c2, c3 = st.columns(3)
             c1.metric("Asymmetry Ratio", f"{asym_detail['asymmetry_ratio']:.2f}")
@@ -1104,7 +1104,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                     fmt_dict[col] = "{:.4f}"
             st.dataframe(
                 panel_comp.style.format(fmt_dict, na_rep="—"),
-                hide_index=True, use_container_width=True,
+                hide_index=True, width="stretch",
             )
 
             # Entity fixed effects
@@ -1140,7 +1140,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                     xaxis_tickangle=-45,
                     margin=dict(l=60, r=30, t=30, b=80),
                 )
-                st.plotly_chart(fig_fe, use_container_width=True)
+                st.plotly_chart(fig_fe, width="stretch")
 
             # Data coverage heatmap
             st.subheader("Data Coverage")
@@ -1161,7 +1161,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
                 labels=dict(color="Obs"),
             )
             fig_cov.update_layout(height=max(400, len(pivot_cov) * 18))
-            st.plotly_chart(fig_cov, use_container_width=True)
+            st.plotly_chart(fig_cov, width="stretch")
         else:
             st.warning("Panel regression returned no results.")
 
