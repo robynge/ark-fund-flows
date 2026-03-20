@@ -781,7 +781,7 @@ if len(seasonal) > 0:
                      visible=True),
         hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
     ))
-    daily_ylabel = "Avg Daily Flow (% AUM)" if daily_fc == "Flow_Pct" else "Avg Daily Flow ($M)"
+    daily_ylabel = "Avg Daily Flow (% of AUM, e.g. 0.1 = 0.1%)" if daily_fc == "Flow_Pct" else "Avg Daily Flow ($M)"
     fig_s.update_layout(height=380, yaxis_title=daily_ylabel,
                         margin=dict(l=60, r=40, t=30, b=30))
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
