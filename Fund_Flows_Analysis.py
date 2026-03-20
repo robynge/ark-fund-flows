@@ -506,7 +506,6 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_cc, width="stretch")
             st.caption(
-                "Unlike the $R^2$ profile (left panel), this is not a regression — it shows the raw "
                 "Pearson correlation between z-scored flows and z-scored returns at each lag $k$: "
                 "$r = \\sum(z_{\\text{flow}} \\cdot z_{\\text{ret}})\\,/\\,(N-1)$, where $z = (x - \\bar{x})/s$. "
                 "$r$ ranges from $-1$ (perfect negative) to $+1$ (perfect positive). "
