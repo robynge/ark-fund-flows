@@ -25,7 +25,10 @@ from scipy import stats
 
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.markdown(
-    '<style>[data-testid="stMetricValue"] {font-size: 1.2rem;}</style>',
+    '<style>'
+    '[data-testid="stMetricValue"] {font-size: 1.2rem;}'
+    '[data-testid="stCaptionContainer"] .katex {font-size: 1em;}'
+    '</style>',
     unsafe_allow_html=True,
 )
 st.title("Do ETF Investors Chase Past Performance?")
