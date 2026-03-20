@@ -462,7 +462,8 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_r2, width="stretch")
             st.caption(
-                "Each point = R² from a separate OLS: Flow(t) = α + β·Return(t−k) + ε. "
+                "For each lag k, we run OLS: Flow(t) = α + β·Return(t−k) + ε. "
+                "R² = 1 − SS_res/SS_tot, i.e. the fraction of flow variance explained by that single lagged return. "
                 "The peak identifies the lag at which past returns have the strongest univariate "
                 "predictive power for current-period flows."
             )
