@@ -210,10 +210,12 @@ if len(etf_dist) > 0:
             lambda v: f"{v:.4f}" if abs(v) < 1 else f"{v:.2f}")
         st.dataframe(pct_df_display, hide_index=True, width="stretch")
 
-        st.metric("Mean", f"{etf_dist.mean():.2f}")
-        st.metric("Std Dev", f"{etf_dist.std():.2f}")
-        st.metric("Skewness", f"{etf_dist.skew():.2f}")
-        st.metric("Observations", f"{len(etf_dist):,}")
+        st.caption(
+            f"Mean: **{etf_dist.mean():.2f}** · "
+            f"Std: **{etf_dist.std():.2f}** · "
+            f"Skew: **{etf_dist.skew():.2f}** · "
+            f"N: **{len(etf_dist):,}**"
+        )
 
 # --- Monthly time series: flow bars + excess return line ---
 etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
