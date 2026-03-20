@@ -234,6 +234,8 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
             "r_squared": model.rsquared,
             "coefficient": model.params.iloc[1],
             "p_value": model.pvalues.iloc[1],
+            "f_statistic": model.fvalue,
+            "f_pvalue": model.f_pvalue,
         })
 
     return pd.DataFrame(results)
@@ -316,6 +318,8 @@ def relative_performance_regression(df: pd.DataFrame, flow_col: str,
             "adj_r_squared": result.rsquared_adj,
             "n_obs": int(result.nobs),
             "aic": result.aic,
+            "f_statistic": result.fvalue,
+            "f_pvalue": result.f_pvalue,
         }
 
     return models
@@ -342,6 +346,9 @@ def relative_performance_all_etfs(df: pd.DataFrame, flow_col: str,
             "R²_Absolute": result["absolute"]["r_squared"],
             "R²_Excess": result["excess"]["r_squared"],
             "R²_Combined": result["combined"]["r_squared"],
+            "F_Abs": result["absolute"]["f_statistic"],
+            "F_Exc": result["excess"]["f_statistic"],
+            "F_Comb": result["combined"]["f_statistic"],
             "N": result["absolute"]["n_obs"],
         })
     return pd.DataFrame(rows)
@@ -528,6 +535,14 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         "p_value": model.pvalues.values,
     })
 
+    # Extract F-statistic
+    f_stat_val = np.nan
+    f_pval_val = np.nan
+    if hasattr(model, "f_statistic"):
+        f_obj = model.f_statistic
+        f_stat_val = float(f_obj.stat) if hasattr(f_obj, "stat") else np.nan
+        f_pval_val = float(f_obj.pval) if hasattr(f_obj, "pval") else np.nan
+
     result = {
         "coefficients": coef_df,
         "r_squared_within": getattr(model, "rsquared_within", model.rsquared),
@@ -535,6 +550,8 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         "r_squared_overall": getattr(model, "rsquared_overall", model.rsquared),
         "n_obs": int(model.nobs),
         "n_entities": int(model.entity_info.total) if hasattr(model, "entity_info") else pdf.index.get_level_values(0).nunique(),
+        "f_statistic": f_stat_val,
+        "f_pvalue": f_pval_val,
     }
 
     # Extract entity effects if available
@@ -582,6 +599,8 @@ def panel_regression_comparison(df: pd.DataFrame, flow_col: str,
         row = {"Specification": name,
                "R²_within": result["r_squared_within"],
                "R²_overall": result["r_squared_overall"],
+               "F_stat": result.get("f_statistic", np.nan),
+               "F_pval": result.get("f_pvalue", np.nan),
                "N": result["n_obs"],
                "Entities": result["n_entities"]}
         for _, cr in result["coefficients"].iterrows():
@@ -591,3 +610,210 @@ def panel_regression_comparison(df: pd.DataFrame, flow_col: str,
         rows.append(row)
 
     return pd.DataFrame(rows)
+
+
+# ============================================================
+# Seasonality: Inflow / Outflow Split
+# ============================================================
+
+def seasonality_inflow_outflow(df: pd.DataFrame, flow_col: str) -> pd.DataFrame:
+    """Compute average inflow and outflow by calendar month.
+
+    For each month, separately averages days with positive flows (inflow)
+    and days with negative flows (outflow).
+
+    Returns DataFrame with columns:
+        Month, Month_Name, Avg_Inflow, Avg_Outflow, Inflow_Days, Outflow_Days
+    """
+    df = df.copy()
+    df["Month"] = df["Date"].dt.month
+    df["Month_Name"] = df["Date"].dt.strftime("%b")
+
+    rows = []
+    for month in range(1, 13):
+        mdata = df[df["Month"] == month][flow_col].dropna()
+        inflows = mdata[mdata > 0]
+        outflows = mdata[mdata < 0]
+        rows.append({
+            "Month": month,
+            "Month_Name": pd.Timestamp(2000, month, 1).strftime("%b"),
+            "Avg_Inflow": inflows.mean() if len(inflows) > 0 else 0.0,
+            "Avg_Outflow": outflows.mean() if len(outflows) > 0 else 0.0,
+            "Inflow_Days": len(inflows),
+            "Outflow_Days": len(outflows),
+        })
+    return pd.DataFrame(rows)
+
+
+# ============================================================
+# Drawdown Analysis
+# ============================================================
+
+def _find_max_drawdown_in_period(prices: pd.Series) -> dict | None:
+    """Find the maximum drawdown in a price series (DatetimeIndex)."""
+    if len(prices) < 2:
+        return None
+    running_peak = prices.cummax()
+    drawdown = (prices - running_peak) / running_peak * 100
+    min_dd = drawdown.min()
+    if pd.isna(min_dd) or min_dd >= 0:
+        return None
+    trough_date = drawdown.idxmin()
+    peak_price = prices.loc[:trough_date].max()
+    peak_date = prices.loc[:trough_date].idxmax()
+    return {
+        "peak_date": peak_date,
+        "trough_date": trough_date,
+        "peak_price": peak_price,
+        "trough_price": prices.loc[trough_date],
+        "depth_pct": min_dd,
+    }
+
+
+def compute_etf_drawdowns(df: pd.DataFrame, return_col: str,
+                           min_depth_pct: float = 10.0,
+                           max_drawdowns: int = 20) -> pd.DataFrame:
+    """Identify drawdown episodes for all ETFs.
+
+    Builds a cumulative price index from returns, then finds non-overlapping
+    drawdowns using an iterative global search (deepest-first).
+
+    Parameters:
+        df: DataFrame with Date, ETF, and return_col columns.
+        return_col: Column with period returns.
+        min_depth_pct: Minimum drawdown depth (positive number, e.g. 10 for -10%).
+        max_drawdowns: Maximum number of drawdowns to find per ETF.
+
+    Returns:
+        Long-form DataFrame with columns: ETF, rank, peak_date, trough_date,
+        peak_price, trough_price, depth_pct, duration_days.
+    """
+    all_dds = []
+
+    for etf in df["ETF"].unique():
+        edf = df[df["ETF"] == etf].copy().sort_values("Date")
+        rets = edf.set_index("Date")[return_col].dropna()
+        if len(rets) < 20:
+            continue
+
+        # Build price index starting at 100
+        price_index = (1 + rets).cumprod() * 100
+
+        remaining = [(price_index.index[0], price_index.index[-1])]
+        rank = 0
+
+        while remaining and rank < max_drawdowns:
+            best_dd = None
+            best_val = 0
+            best_idx = -1
+            best_split = None
+
+            for i, (start, end) in enumerate(remaining):
+                segment = price_index.loc[start:end]
+                dd = _find_max_drawdown_in_period(segment)
+                if dd and dd["depth_pct"] < best_val:
+                    best_dd = dd
+                    best_val = dd["depth_pct"]
+                    best_idx = i
+                    best_split = (start, end)
+
+            if best_dd is None or abs(best_dd["depth_pct"]) < min_depth_pct:
+                break
+
+            rank += 1
+            duration = len(price_index.loc[best_dd["peak_date"]:best_dd["trough_date"]])
+            all_dds.append({
+                "ETF": etf,
+                "rank": rank,
+                "peak_date": best_dd["peak_date"],
+                "trough_date": best_dd["trough_date"],
+                "peak_price": best_dd["peak_price"],
+                "trough_price": best_dd["trough_price"],
+                "depth_pct": best_dd["depth_pct"],
+                "duration_days": duration,
+            })
+
+            # Split remaining periods
+            start, end = best_split
+            remaining.pop(best_idx)
+            pk = best_dd["peak_date"]
+            tr = best_dd["trough_date"]
+            if start < pk and (pk - start).days > 1:
+                remaining.append((start, pk - pd.Timedelta(days=1)))
+            if tr < end and (end - tr).days > 1:
+                remaining.append((tr + pd.Timedelta(days=1), end))
+
+    if not all_dds:
+        return pd.DataFrame(columns=[
+            "ETF", "rank", "peak_date", "trough_date",
+            "peak_price", "trough_price", "depth_pct", "duration_days"])
+    return pd.DataFrame(all_dds)
+
+
+def drawdown_flow_analysis(df: pd.DataFrame, drawdowns: pd.DataFrame,
+                            flow_col: str,
+                            forward_months: list[int] = [1, 2, 3, 6]) -> pd.DataFrame:
+    """Analyse cumulative flows following each drawdown trough.
+
+    For each drawdown episode, computes cumulative flow over the next
+    h months (for each h in forward_months).
+
+    Returns DataFrame with columns: ETF, rank, depth_pct, duration_days,
+    plus CumFlow_1m, CumFlow_2m, etc.
+    """
+    rows = []
+    for _, dd in drawdowns.iterrows():
+        etf = dd["ETF"]
+        trough = dd["trough_date"]
+        edf = df[(df["ETF"] == etf) & (df["Date"] > trough)].sort_values("Date")
+        if len(edf) == 0:
+            continue
+        row = {
+            "ETF": etf,
+            "rank": dd["rank"],
+            "depth_pct": dd["depth_pct"],
+            "duration_days": dd["duration_days"],
+            "trough_date": trough,
+        }
+        for h in forward_months:
+            cutoff = trough + pd.DateOffset(months=h)
+            window = edf[edf["Date"] <= cutoff][flow_col]
+            row[f"CumFlow_{h}m"] = window.sum() if len(window) > 0 else np.nan
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
+def drawdown_flow_regression(analysis_df: pd.DataFrame,
+                              forward_months: list[int] = [1, 2, 3, 6]) -> pd.DataFrame:
+    """Regress cumulative post-drawdown flows on drawdown depth and duration.
+
+    CumFlow_{i,[t,t+h]} = α + β₁·DrawdownDepth_i + β₂·Duration_i + ε
+
+    Returns one row per forward horizon with regression coefficients.
+    """
+    results = []
+    for h in forward_months:
+        col = f"CumFlow_{h}m"
+        if col not in analysis_df.columns:
+            continue
+        valid = analysis_df[["depth_pct", "duration_days", col]].dropna()
+        if len(valid) < 5:
+            continue
+        y = valid[col]
+        X = sm.add_constant(valid[["depth_pct", "duration_days"]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = sm.OLS(y, X).fit()
+        results.append({
+            "Horizon": f"{h}m",
+            "β_Depth": model.params.get("depth_pct", np.nan),
+            "β_Depth_p": model.pvalues.get("depth_pct", np.nan),
+            "β_Duration": model.params.get("duration_days", np.nan),
+            "β_Duration_p": model.pvalues.get("duration_days", np.nan),
+            "R²": model.rsquared,
+            "N": int(model.nobs),
+        })
+    return pd.DataFrame(results)

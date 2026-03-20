@@ -18,7 +18,8 @@ from analysis import (
     relative_performance_regression, relative_performance_all_etfs,
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
-    seasonality_analysis,
+    seasonality_analysis, seasonality_inflow_outflow,
+    compute_etf_drawdowns, drawdown_flow_analysis, drawdown_flow_regression,
 )
 from scipy import stats
 
@@ -31,16 +32,24 @@ This dashboard investigates whether ETF investors chase past performance across
 **38 tech ETFs** (9 ARK + 29 peers). Each section's conclusion raises the next
 section's question, building a complete research narrative.
 
-**Data**: Daily fund flow and price data (2014–2026), aggregated to chosen frequency.
+**Data sources**:
+- **Fund flows**: Bloomberg daily fund flow data for 9 ARK ETFs and 29 tech peer
+  ETFs, covering 2014–2026.
+- **Prices**: Bloomberg daily OHLCV price data for all 38 ETFs.
+- **AUM**: Bloomberg total net assets (monthly) for all 38 ETFs, used to normalize
+  flows as a percentage of assets under management.
+- **Benchmarks**: SPY (S&P 500) and QQQ (Nasdaq-100) daily returns from Yahoo
+  Finance; peer-group average computed cross-sectionally from the 38 ETFs.
 
 **Sections**:
 1. **Fund Flow Distribution** — What does a typical flow look like? What's big vs small?
 2. **Does Performance Chasing Exist?** — Do past returns predict future flows?
-3. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
-4. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
-5. **Absolute vs Relative Performance** — Own return vs market-relative return?
-6. **Asymmetric Response** — Do gains and losses trigger equal reactions?
-7. **Panel Regression** — Robustness check across all ETFs simultaneously
+3. **Drawdown Analysis** — How do flows behave after major drawdowns?
+4. **How Long Does the Effect Last?** — Lag profile across all 38 ETFs
+5. **Seasonality** — Calendar effects in fund flows (January reallocation, etc.)
+6. **Absolute vs Relative Performance** — Own return vs market-relative return?
+7. **Asymmetric Response** — Do gains and losses trigger equal reactions?
+8. **Panel Regression** — Robustness check across all ETFs simultaneously
 """)
 
 # --- Sidebar ---
@@ -87,6 +96,8 @@ ETF_FULL_NAMES = {
 
 FLOW_UNIT_OPTIONS = {"Raw $ (millions)": "raw", "% of AUM": "pct"}
 
+TIME_RANGE_OPTIONS = ["All Time", "Last 5 Years", "Since Pandemic (2020-03)", "Custom"]
+
 with st.sidebar:
     freq = st.selectbox(
         "Frequency", ["D", "W", "ME", "QE"],
@@ -99,6 +110,22 @@ with st.sidebar:
         "Per-ETF View", ALL_ETF_NAMES, index=0,
         format_func=lambda x: f"{x} — {ETF_FULL_NAMES.get(x, x)}",
     )
+
+    st.markdown("---")
+    time_range = st.selectbox("Time Range", TIME_RANGE_OPTIONS, index=0)
+    if time_range == "Custom":
+        date_start = st.date_input("Start date", value=pd.Timestamp("2014-01-01"))
+        date_end = st.date_input("End date", value=pd.Timestamp("2026-12-31"))
+    elif time_range == "Last 5 Years":
+        date_end = pd.Timestamp("today")
+        date_start = date_end - pd.DateOffset(years=5)
+    elif time_range == "Since Pandemic (2020-03)":
+        date_start = pd.Timestamp("2020-03-01")
+        date_end = pd.Timestamp("today")
+    else:
+        date_start = None
+        date_end = None
+
     st.markdown("---")
     st.caption("38 ETFs: 9 ARK + 29 tech peers")
 
@@ -109,6 +136,12 @@ def load_peer_data(freq, benchmark):
 
 
 df = load_peer_data(freq, "peer_avg")
+
+# Apply global time filter
+if date_start is not None and date_end is not None:
+    _start = pd.Timestamp(date_start)
+    _end = pd.Timestamp(date_end)
+    df = df[(df["Date"] >= _start) & (df["Date"] <= _end)]
 
 if freq == "D":
     fc_raw, rc = "Fund_Flow", "Return"
@@ -153,6 +186,10 @@ Before testing for performance chasing, we need to understand the data.
 This section shows the distribution of {flow_ylabel.lower()} at the chosen
 frequency, with percentile breakdowns and cross-ETF comparisons.
 """)
+st.caption(
+    "**Data**: Bloomberg daily fund flow, price, and AUM data. "
+    "Flow % of AUM = monthly aggregate flow ÷ beginning-of-month AUM × 100."
+)
 
 # --- Per-ETF histogram + stats ---
 etf_dist = df_valid[df_valid["ETF"] == selected_etf][fc].dropna()
@@ -196,6 +233,46 @@ if len(etf_dist) > 0:
         st.metric("Std Dev", f"{etf_dist.std():.2f}")
         st.metric("Skewness", f"{etf_dist.skew():.2f}")
         st.metric("Observations", f"{len(etf_dist):,}")
+
+# --- Monthly time series: flow bars + excess return line ---
+etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
+if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
+    st.subheader(f"{selected_etf}: Monthly Flow & Excess Return")
+
+    bench_s1 = st.radio(
+        "Benchmark", ["SPY", "QQQ", "Peer Average"],
+        horizontal=True, index=2, key="sec1_benchmark",
+    )
+    bench_s1_key = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}[bench_s1]
+
+    if bench_s1_key != "peer_avg":
+        _df_s1 = load_peer_data(freq, bench_s1_key)
+        if date_start is not None and date_end is not None:
+            _df_s1 = _df_s1[(_df_s1["Date"] >= pd.Timestamp(date_start)) & (_df_s1["Date"] <= pd.Timestamp(date_end))]
+        etf_ts_s1 = _df_s1[_df_s1["ETF"] == selected_etf].copy().sort_values("Date")
+
+    bar_colors = ["#2ca02c" if v >= 0 else "#d62728"
+                  for v in etf_ts_s1[fc].fillna(0)]
+
+    fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_dual.add_trace(
+        go.Bar(x=etf_ts_s1["Date"], y=etf_ts_s1[fc],
+               marker_color=bar_colors, name=flow_ylabel, opacity=0.7),
+        secondary_y=False,
+    )
+    fig_dual.add_trace(
+        go.Scatter(x=etf_ts_s1["Date"], y=etf_ts_s1[exc_col],
+                   mode="lines", name="Excess Return",
+                   line=dict(color="#1f77b4", width=1.5)),
+        secondary_y=True,
+    )
+    fig_dual.update_yaxes(title_text=flow_ylabel, secondary_y=False)
+    fig_dual.update_yaxes(title_text="Excess Return", secondary_y=True)
+    fig_dual.update_layout(
+        height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        margin=dict(l=60, r=60, t=40, b=30),
+    )
+    st.plotly_chart(fig_dual, use_container_width=True)
 
 # --- All-ETF comparison ---
 st.subheader("Cross-ETF Comparison")
@@ -275,6 +352,7 @@ a single lagged return explain?) and a **cross-correlogram** (raw correlation at
 each lag). If performance chasing exists, we expect significant positive
 correlation at positive lags (past returns → current flows).
 """)
+st.latex(r"Flow_{i,t} = \alpha + \beta \cdot Return_{i,t-k} + \varepsilon")
 
 etf_df = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
 
@@ -351,10 +429,11 @@ if len(etf_df) > 0:
     st.caption(f"{n_valid} ETFs with sufficient data ({n_ark} ARK + {n_peer} peers)")
 
     @st.cache_data(show_spinner="Computing R² profiles...")
-    def compute_all_r2(freq):
+    def compute_all_r2(freq, _time_key=None):
         return r_squared_by_lag_all_etfs(df_valid, fc, rc)
 
-    all_r2 = compute_all_r2(freq)
+    _time_key = f"{date_start}_{date_end}" if date_start else "all"
+    all_r2 = compute_all_r2(freq, _time_key=_time_key)
     if len(all_r2) > 0:
         summary_rows = []
         for etf in all_r2["ETF"].unique():
@@ -365,12 +444,15 @@ if len(etf_df) > 0:
                 "Source": "ARK" if etf in ETF_NAMES else "Tech Peers",
                 "Peak Lag": int(peak_row["lag"]),
                 "Peak R²": peak_row["r_squared"],
+                "F-stat": peak_row.get("f_statistic", np.nan),
                 "Peak p-value": peak_row["p_value"],
                 "N": len(df_valid[df_valid["ETF"] == etf][fc].dropna()),
             })
         summary_df = pd.DataFrame(summary_rows).sort_values("Peak R²", ascending=False)
         st.dataframe(
-            summary_df.style.format({"Peak R²": "{:.4f}", "Peak p-value": "{:.4f}"}),
+            summary_df.style.format({
+                "Peak R²": "{:.4f}", "F-stat": "{:.2f}", "Peak p-value": "{:.4f}",
+            }),
             hide_index=True, use_container_width=True,
         )
 else:
@@ -378,10 +460,113 @@ else:
 
 
 # ============================================================
-# Section 3 — How Long Does the Effect Last?
+# Section 3 — Drawdown Analysis
 # ============================================================
 st.markdown("---")
-st.header("3. How Long Does the Effect Last?")
+st.header("3. Drawdown Analysis")
+st.markdown("""
+**Question**: How do fund flows behave after major price drawdowns?
+
+We identify non-overlapping drawdown episodes (peak-to-trough declines ≥ 10%)
+for each ETF, then measure cumulative flows in the months following each trough.
+""")
+st.latex(r"CumFlow_{i,[t,t+h]} = \alpha + \beta_1 \cdot DrawdownDepth_i + \beta_2 \cdot Duration_i + \varepsilon")
+st.caption(
+    "Drawdowns are identified from a cumulative return-based price index. "
+    "Depth is measured as peak-to-trough percentage decline; duration in trading days."
+)
+
+@st.cache_data(show_spinner="Computing drawdowns...")
+def compute_drawdowns(_df, return_col, _time_key=None):
+    return compute_etf_drawdowns(_df, return_col, min_depth_pct=10.0)
+
+dd_all = compute_drawdowns(df_valid, rc, _time_key=_time_key)
+
+if len(dd_all) > 0:
+    # Chart 1: price index with drawdown shading for selected ETF
+    etf_dd = dd_all[dd_all["ETF"] == selected_etf]
+    etf_prices = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
+
+    if len(etf_prices) > 10:
+        price_idx = (1 + etf_prices.set_index("Date")[rc].dropna()).cumprod() * 100
+
+        fig_dd_price = go.Figure()
+        fig_dd_price.add_trace(go.Scatter(
+            x=price_idx.index, y=price_idx.values,
+            mode="lines", name="Price Index", line=dict(color="#1f77b4", width=1.5),
+        ))
+        for _, dd_row in etf_dd.iterrows():
+            fig_dd_price.add_vrect(
+                x0=dd_row["peak_date"], x1=dd_row["trough_date"],
+                fillcolor="red", opacity=0.15, line_width=0,
+                annotation_text=f"{dd_row['depth_pct']:.0f}%",
+                annotation_position="top left",
+                annotation_font_size=9,
+            )
+        fig_dd_price.update_layout(
+            height=400, yaxis_title="Price Index (base=100)",
+            title=f"{selected_etf}: Price Index with Drawdown Periods",
+            margin=dict(l=60, r=30, t=40, b=30),
+        )
+        st.plotly_chart(fig_dd_price, use_container_width=True)
+
+    # Compute flow analysis
+    dd_flow = drawdown_flow_analysis(df_valid, dd_all, fc)
+
+    if len(dd_flow) > 0:
+        # Chart 2: scatter — drawdown depth vs cumulative flow (1m)
+        col_scat1, col_scat2 = st.columns(2)
+        with col_scat1:
+            if "CumFlow_1m" in dd_flow.columns:
+                fig_scat = px.scatter(
+                    dd_flow, x="depth_pct", y="CumFlow_1m",
+                    color="ETF", hover_data=["trough_date", "duration_days"],
+                    title="Drawdown Depth vs 1-Month Cumulative Flow",
+                )
+                fig_scat.update_layout(
+                    height=400, xaxis_title="Drawdown Depth (%)",
+                    yaxis_title=f"Cumulative Flow 1m ({flow_ylabel})",
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_scat, use_container_width=True)
+
+        with col_scat2:
+            if "CumFlow_3m" in dd_flow.columns:
+                fig_scat3 = px.scatter(
+                    dd_flow, x="depth_pct", y="CumFlow_3m",
+                    color="ETF", hover_data=["trough_date", "duration_days"],
+                    title="Drawdown Depth vs 3-Month Cumulative Flow",
+                )
+                fig_scat3.update_layout(
+                    height=400, xaxis_title="Drawdown Depth (%)",
+                    yaxis_title=f"Cumulative Flow 3m ({flow_ylabel})",
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_scat3, use_container_width=True)
+
+        # Regression table
+        dd_reg = drawdown_flow_regression(dd_flow)
+        if len(dd_reg) > 0:
+            st.subheader("Post-Drawdown Flow Regression")
+            st.dataframe(
+                dd_reg.style.format({
+                    "β_Depth": "{:.4f}", "β_Depth_p": "{:.4f}",
+                    "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}",
+                    "R²": "{:.4f}",
+                }),
+                hide_index=True, use_container_width=True,
+            )
+    else:
+        st.info("Not enough post-drawdown flow data for analysis.")
+else:
+    st.info("No drawdowns ≥ 10% found in the selected time range.")
+
+
+# ============================================================
+# Section 4 — How Long Does the Effect Last?
+# ============================================================
+st.markdown("---")
+st.header("4. How Long Does the Effect Last?")
 st.markdown("""
 **Question**: At which lag is the effect strongest, and how far back does it extend?
 
@@ -390,6 +575,10 @@ cells = strong predictive power. This reveals whether performance chasing is a
 short-memory (1-period) or long-memory (multi-period) phenomenon, and whether
 ARK ETFs differ from peers.
 """)
+st.caption(
+    "Each cell shows the R² from a simple OLS regression of flow on a single lagged return. "
+    "Rows are sorted with ARK ETFs first, then peers, each by descending peak R²."
+)
 
 if len(all_r2) > 0:
     # Heatmap: ETF × lag → R²
@@ -448,18 +637,23 @@ else:
 
 
 # ============================================================
-# Section 4 — Seasonality
+# Section 5 — Seasonality
 # ============================================================
 st.markdown("---")
-st.header("4. Seasonality")
+st.header("5. Seasonality")
 st.markdown("""
 **Question**: Are there calendar effects in fund flows?
 
 Some months (e.g., January) may see systematic reallocation. If flows are
-seasonally driven, the performance-chasing signal from Sections 2–3 could be
+seasonally driven, the performance-chasing signal from Sections 2–4 could be
 a confound. This section checks whether calendar effects exist and how large
 they are.
 """)
+st.caption(
+    "Daily fund flow data is grouped by calendar month across all available years. "
+    "Error bars show standard error of the mean. The inflow/outflow breakdown "
+    "separately averages days with positive vs negative flows."
+)
 
 # Always use daily data for seasonality analysis
 @st.cache_data(show_spinner="Loading daily data for seasonality...")
@@ -467,6 +661,11 @@ def load_daily_data():
     return get_prepared_data_with_peers(freq="D", zscore_type="full", benchmark="peer_avg")
 
 daily_df = load_daily_data()
+
+# Apply time filter to daily data
+if date_start is not None and date_end is not None:
+    daily_df = daily_df[(daily_df["Date"] >= pd.Timestamp(date_start)) & (daily_df["Date"] <= pd.Timestamp(date_end))]
+
 etf_daily = daily_df[daily_df["ETF"] == selected_etf]
 
 daily_fc = "Flow_Pct" if flow_unit == "pct" and "Flow_Pct" in daily_df.columns and daily_df["Flow_Pct"].notna().any() else "Fund_Flow"
@@ -498,15 +697,38 @@ if len(seasonal) > 0:
         c1.metric(f"Jan Avg ({jan_unit})", f"{jan.mean():.2f}")
         c2.metric("Other Months Avg", f"{other.mean():.2f}")
         c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
+
+    # Inflow / Outflow breakdown
+    io_data = seasonality_inflow_outflow(etf_daily, daily_fc)
+    if len(io_data) > 0:
+        st.subheader(f"{selected_etf} — Inflow vs Outflow by Month")
+        fig_io = go.Figure()
+        fig_io.add_trace(go.Bar(
+            x=io_data["Month_Name"], y=io_data["Avg_Inflow"],
+            name="Avg Inflow", marker_color="#2ca02c",
+            hovertemplate="Month: %{x}<br>Avg Inflow: %{y:.2f}<extra></extra>",
+        ))
+        fig_io.add_trace(go.Bar(
+            x=io_data["Month_Name"], y=io_data["Avg_Outflow"],
+            name="Avg Outflow", marker_color="#d62728",
+            hovertemplate="Month: %{x}<br>Avg Outflow: %{y:.2f}<extra></extra>",
+        ))
+        fig_io.update_layout(
+            barmode="group", height=380, yaxis_title=daily_ylabel,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            margin=dict(l=60, r=40, t=40, b=30),
+        )
+        fig_io.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
+        st.plotly_chart(fig_io, use_container_width=True)
 else:
     st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
 
 
 # ============================================================
-# Section 5 — Absolute vs Relative Performance
+# Section 6 — Absolute vs Relative Performance
 # ============================================================
 st.markdown("---")
-st.header("5. Absolute vs Relative Performance")
+st.header("6. Absolute vs Relative Performance")
 
 _bench_desc = {
     "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
@@ -515,12 +737,14 @@ benchmark = st.radio(
     "Benchmark for excess return",
     ["SPY", "QQQ", "Peer Average"],
     horizontal=True, index=2,
-    key="sec5_benchmark",
+    key="sec6_benchmark",
 )
 benchmark = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}[benchmark]
 
 # Load data with selected benchmark (cached per benchmark)
 df_bench = load_peer_data(freq, benchmark)
+if date_start is not None and date_end is not None:
+    df_bench = df_bench[(df_bench["Date"] >= pd.Timestamp(date_start)) & (df_bench["Date"] <= pd.Timestamp(date_end))]
 df_bench_valid = df_bench[df_bench["ETF"].isin(valid_etfs)].copy()
 
 st.markdown(f"""
@@ -537,34 +761,37 @@ For each ETF we run three models predicting flows from lagged returns:
 If R² Excess > R² Absolute, investors care more about **relative performance**
 than raw return.
 """)
+st.latex(r"\text{Absolute: } Flow_{i,t} = \alpha + \sum_k \beta_k \cdot Return_{i,t-k} + \varepsilon")
+st.latex(r"\text{Excess: } Flow_{i,t} = \alpha + \sum_k \gamma_k \cdot ExcessReturn_{i,t-k} + \varepsilon")
+st.latex(r"\text{Combined: } Flow_{i,t} = \alpha + \sum_k \beta_k \cdot Return_{i,t-k} + \sum_k \gamma_k \cdot ExcessReturn_{i,t-k} + \varepsilon")
 
 # Per-ETF: R² by lag, absolute vs excess
-etf_df_sec4 = df_bench_valid[df_bench_valid["ETF"] == selected_etf]
-if len(etf_df_sec4) > 0 and not etf_df_sec4[exc_col].dropna().empty:
-    n_obs4 = len(etf_df_sec4[fc].dropna())
-    max_lag4 = max(1, min(n_obs4 // 2, 24))
-    lag_range4 = range(1, max_lag4 + 1)
+etf_df_sec6 = df_bench_valid[df_bench_valid["ETF"] == selected_etf]
+if len(etf_df_sec6) > 0 and not etf_df_sec6[exc_col].dropna().empty:
+    n_obs6 = len(etf_df_sec6[fc].dropna())
+    max_lag6 = max(1, min(n_obs6 // 2, 24))
+    lag_range6 = range(1, max_lag6 + 1)
 
-    r2_abs4 = r_squared_by_lag(etf_df_sec4, fc, rc, lag_range4)
-    r2_exc4 = r_squared_by_lag(etf_df_sec4, fc, exc_col, lag_range4)
+    r2_abs6 = r_squared_by_lag(etf_df_sec6, fc, rc, lag_range6)
+    r2_exc6 = r_squared_by_lag(etf_df_sec6, fc, exc_col, lag_range6)
 
-    if len(r2_abs4) > 0 and len(r2_exc4) > 0:
+    if len(r2_abs6) > 0 and len(r2_exc6) > 0:
         st.subheader(f"{selected_etf}: R² by Lag — Absolute vs Excess")
         fig_cmp = go.Figure()
         fig_cmp.add_trace(go.Scatter(
-            x=r2_abs4["lag"], y=r2_abs4["r_squared"],
+            x=r2_abs6["lag"], y=r2_abs6["r_squared"],
             name="Absolute Return", mode="lines+markers",
             line=dict(color="#1f77b4", width=2),
             hovertemplate="Lag %{x}<br>Absolute R²: %{y:.4f}<extra></extra>",
         ))
         fig_cmp.add_trace(go.Scatter(
-            x=r2_exc4["lag"], y=r2_exc4["r_squared"],
+            x=r2_exc6["lag"], y=r2_exc6["r_squared"],
             name="Excess Return", mode="lines+markers",
             line=dict(color="#ff7f0e", width=2),
             hovertemplate="Lag %{x}<br>Excess R²: %{y:.4f}<extra></extra>",
         ))
-        abs_peak = r2_abs4.loc[r2_abs4["r_squared"].idxmax()]
-        exc_peak = r2_exc4.loc[r2_exc4["r_squared"].idxmax()]
+        abs_peak = r2_abs6.loc[r2_abs6["r_squared"].idxmax()]
+        exc_peak = r2_exc6.loc[r2_exc6["r_squared"].idxmax()]
         fig_cmp.add_annotation(
             x=abs_peak["lag"], y=abs_peak["r_squared"],
             text=f"Abs peak: lag {int(abs_peak['lag'])}",
@@ -610,11 +837,17 @@ if len(rp_summary) > 0:
     )
     st.plotly_chart(fig_rp, use_container_width=True)
 
+    display_cols = ["ETF", "Source", "R²_Absolute", "R²_Excess", "R²_Combined"]
+    fmt = {"R²_Absolute": "{:.4f}", "R²_Excess": "{:.4f}", "R²_Combined": "{:.4f}"}
+    if "F_Abs" in rp_summary.columns:
+        display_cols += ["F_Abs", "F_Exc", "F_Comb"]
+        fmt.update({"F_Abs": "{:.2f}", "F_Exc": "{:.2f}", "F_Comb": "{:.2f}"})
+    display_cols.append("N")
+
     st.dataframe(
-        rp_summary[["ETF", "Source", "R²_Absolute", "R²_Excess", "R²_Combined", "N"]]
+        rp_summary[display_cols]
         .sort_values("R²_Combined", ascending=False)
-        .style.format({"R²_Absolute": "{:.4f}", "R²_Excess": "{:.4f}",
-                        "R²_Combined": "{:.4f}"}),
+        .style.format(fmt),
         hide_index=True, use_container_width=True,
     )
 else:
@@ -622,10 +855,10 @@ else:
 
 
 # ============================================================
-# Section 6 — Asymmetric Response
+# Section 7 — Asymmetric Response
 # ============================================================
 st.markdown("---")
-st.header("6. Asymmetric Response")
+st.header("7. Asymmetric Response")
 st.markdown("""
 **Question**: Do investors react equally to gains and losses?
 
@@ -636,6 +869,8 @@ estimate separate coefficients:
 - **Asymmetry Ratio** = β_pos / |β_neg| — values > 1 mean gain-chasing dominates
 - **Wald P** — tests whether the asymmetry is statistically significant
 """)
+st.latex(r"Flow_{i,t} = \alpha + \sum_k \beta^+_k \cdot Return^+_{i,t-k} + \sum_k \beta^-_k \cdot Return^-_{i,t-k} + \varepsilon")
+st.caption(r"where Return⁺ = max(Return, 0) and Return⁻ = min(Return, 0).")
 
 with st.spinner("Running asymmetry regressions..."):
     asym_summary = asymmetry_all_etfs(df_valid, fc, rc)
@@ -715,20 +950,22 @@ else:
 
 
 # ============================================================
-# Section 7 — Panel Regression (Robustness)
+# Section 8 — Panel Regression (Robustness)
 # ============================================================
 st.markdown("---")
-st.header("7. Panel Regression (Robustness)")
+st.header("8. Panel Regression (Robustness)")
 
 benchmark_panel = st.radio(
     "Benchmark for excess return",
     ["SPY", "QQQ", "Peer Average"],
     horizontal=True, index=2,
-    key="sec7_benchmark",
+    key="sec8_benchmark",
 )
 benchmark_panel = {"SPY": "SPY", "QQQ": "QQQ", "Peer Average": "peer_avg"}[benchmark_panel]
 
 df_panel_bench = load_peer_data(freq, benchmark_panel)
+if date_start is not None and date_end is not None:
+    df_panel_bench = df_panel_bench[(df_panel_bench["Date"] >= pd.Timestamp(date_start)) & (df_panel_bench["Date"] <= pd.Timestamp(date_end))]
 df_panel_bench_valid = df_panel_bench[df_panel_bench["ETF"].isin(valid_etfs)].copy()
 
 st.markdown(f"""
@@ -742,6 +979,8 @@ Five specifications from simplest to most controlled:
 - **Entity FE + Excess** — adds relative performance (benchmark: **{_bench_desc[benchmark_panel]}**)
 - **Entity FE + Controls** — adds rolling volatility
 """)
+st.latex(r"Flow_{i,t} = \alpha_i + \lambda_t + \sum_k \beta_k \cdot Return_{i,t-k} + \gamma \cdot ExcessReturn_{i,t-k} + \delta \cdot Volatility_{i,t} + \varepsilon_{i,t}")
+st.caption("Panel OLS with entity (αᵢ) and optional time (λₜ) fixed effects; clustered standard errors by entity.")
 
 panel_df = df_panel_bench_valid.dropna(subset=[fc, rc])
 
@@ -753,11 +992,14 @@ with st.spinner("Running panel regressions (5 specifications)..."):
         if len(panel_comp) > 0:
             # Model comparison table
             st.subheader("5-Specification Comparison")
-            fmt_dict = {"R²_within": "{:.4f}", "R²_overall": "{:.4f}"}
+            fmt_dict = {
+                "R²_within": "{:.4f}", "R²_overall": "{:.4f}",
+                "F_stat": "{:.2f}", "F_pval": "{:.4f}",
+            }
             for col in panel_comp.columns:
                 if col.endswith("_coef"):
                     fmt_dict[col] = "{:.4f}"
-                elif col.endswith("_pval"):
+                elif col.endswith("_pval") and col != "F_pval":
                     fmt_dict[col] = "{:.4f}"
             st.dataframe(
                 panel_comp.style.format(fmt_dict, na_rep="—"),
