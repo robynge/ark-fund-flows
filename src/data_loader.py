@@ -60,7 +60,7 @@ def add_returns(df: pd.DataFrame) -> pd.DataFrame:
 def aggregate_to_frequency(df: pd.DataFrame, freq: str) -> pd.DataFrame:
     """
     Aggregate daily data to weekly (W), monthly (ME), or quarterly (QE).
-    Returns DataFrame with columns: Date, ETF, Flow_Sum, Return_Cum, Close_Last.
+    Returns DataFrame with columns: Date, ETF, Flow_Sum, Return_Cum, Open_First, High_Max, Low_Min, Close_Last.
     """
     df = df.copy()
     df = df.set_index("Date")
@@ -71,6 +71,9 @@ def aggregate_to_frequency(df: pd.DataFrame, freq: str) -> pd.DataFrame:
         resampled = group.resample(freq).agg(
             Flow_Sum=("Fund_Flow", "sum"),
             Return_Cum=("Return", lambda x: (1 + x).prod() - 1),
+            Open_First=("Open", "first"),
+            High_Max=("High", "max"),
+            Low_Min=("Low", "min"),
             Close_Last=("Close", "last"),
             Volume_Sum=("Volume", "sum"),
         )

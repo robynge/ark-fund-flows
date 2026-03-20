@@ -271,19 +271,32 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
                hovertemplate=f"Fund Flow: %{{y:{flow_hover_fmt}}}{flow_suffix}<extra></extra>"),
         secondary_y=False,
     )
-    fig_dual.add_trace(
-        go.Scatter(x=etf_ts_s1["Date"], y=etf_ts_s1[exc_col],
-                   mode="lines", name="Excess Return",
-                   line=dict(color="#1f77b4", width=1.5),
-                   hovertemplate="Excess Return: %{y:.2f}%<extra></extra>"),
-        secondary_y=True,
-    )
+    # Candlestick (monthly OHLC) on secondary y-axis
+    has_ohlc = all(c in etf_ts_s1.columns for c in ["Open_First", "High_Max", "Low_Min", "Close_Last"])
+    if has_ohlc:
+        fig_dual.add_trace(
+            go.Candlestick(
+                x=etf_ts_s1["Date"],
+                open=etf_ts_s1["Open_First"], high=etf_ts_s1["High_Max"],
+                low=etf_ts_s1["Low_Min"], close=etf_ts_s1["Close_Last"],
+                name="Price", increasing_line_color="#1f77b4",
+                decreasing_line_color="#aec7e8",
+            ),
+            secondary_y=True,
+        )
+    else:
+        fig_dual.add_trace(
+            go.Scatter(x=etf_ts_s1["Date"], y=etf_ts_s1["Close_Last"],
+                       mode="lines", name="Price",
+                       line=dict(color="#1f77b4", width=1.5)),
+            secondary_y=True,
+        )
     fig_dual.update_yaxes(title_text=flow_ylabel, secondary_y=False)
-    fig_dual.update_yaxes(title_text="Excess Return", secondary_y=True)
+    fig_dual.update_yaxes(title_text="Price ($)", secondary_y=True)
     fig_dual.update_layout(
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
-        hovermode="x unified",
+        hovermode="x unified", xaxis_rangeslider_visible=False,
     )
     # Annotate top inflow and top outflow months
     flow_series = etf_ts_s1[[fc, "Date"]].dropna(subset=[fc])
@@ -303,9 +316,9 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
             )
     st.plotly_chart(fig_dual, width="stretch")
     st.caption(
-        "Excess return = ETF return − benchmark return in the same period. "
-        "If performance chasing exists, large positive excess returns should precede inflow bars in subsequent periods — "
-        "look for the line leading the bars by 1–2 periods."
+        "Monthly candlestick (OHLC) overlaid with fund flow bars. "
+        "Blue candle = price up; light blue = price down. "
+        "If performance chasing exists, rising price months should precede inflow bars in subsequent periods."
     )
 
 # --- All-ETF comparison ---
@@ -903,6 +916,38 @@ if len(etf_df_sec6) > 0 and not etf_df_sec6[exc_col].dropna().empty:
 
     r2_abs6 = r_squared_by_lag(etf_df_sec6, fc, rc, lag_range6)
     r2_exc6 = r_squared_by_lag(etf_df_sec6, fc, exc_col, lag_range6)
+
+    # Excess Return time series (moved from Section 1)
+    exc_series = etf_df_sec6[["Date", exc_col, fc]].dropna(subset=[exc_col])
+    if len(exc_series) > 0:
+        st.subheader(f"{selected_etf}: Excess Return & Fund Flow")
+        exc_bar_colors = ["#2ca02c" if v >= 0 else "#d62728"
+                          for v in exc_series[fc].fillna(0)]
+        fig_exc = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_exc.add_trace(
+            go.Bar(x=exc_series["Date"], y=exc_series[fc],
+                   marker_color=exc_bar_colors, name="Fund Flow", opacity=0.7),
+            secondary_y=False,
+        )
+        fig_exc.add_trace(
+            go.Scatter(x=exc_series["Date"], y=exc_series[exc_col],
+                       mode="lines", name="Excess Return",
+                       line=dict(color="#1f77b4", width=1.5)),
+            secondary_y=True,
+        )
+        fig_exc.update_yaxes(title_text=flow_ylabel, secondary_y=False)
+        fig_exc.update_yaxes(title_text="Excess Return", secondary_y=True)
+        fig_exc.update_layout(
+            height=380, legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            margin=dict(l=60, r=60, t=30, b=30),
+            hovermode="x unified",
+        )
+        st.plotly_chart(fig_exc, width="stretch")
+        st.caption(
+            "Excess return = ETF return − benchmark return in the same period. "
+            "If performance chasing exists, large positive excess returns should precede inflow bars "
+            "in subsequent periods — look for the line leading the bars by 1–2 periods."
+        )
 
     if len(r2_abs6) > 0 and len(r2_exc6) > 0:
         st.subheader(f"{selected_etf}: R² by Lag — Absolute vs Excess")
