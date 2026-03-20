@@ -193,9 +193,8 @@ if len(etf_dist) > 0:
         )
         st.plotly_chart(fig_dist, width="stretch")
         st.caption(
-            f"Histogram of {freq_label}ly net fund flows for {selected_etf} over the full sample period. "
-            "Red dashed line = median. The distribution's skewness indicates whether "
-            "the fund experiences more frequent small outflows offset by occasional large inflows (right-skewed) or vice versa."
+            "Skewness > 0 (right-skewed): more frequent small outflows offset by occasional large inflows. "
+            "P25 < 0 in the percentile table means the fund experienced net outflows in at least 25% of periods."
         )
 
     with col_stats:
@@ -256,10 +255,9 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
     )
     st.plotly_chart(fig_dual, width="stretch")
     st.caption(
-        f"Time series of {selected_etf} net flows (bars, left axis) and excess return vs {bench_s1} "
-        "(line, right axis) at the selected frequency. Green bars = net inflows; red bars = net outflows. "
-        "Excess return = ETF return minus benchmark return in the same period. "
-        "Visual co-movement between the line and subsequent bars suggests performance chasing."
+        "Excess return = ETF return − benchmark return in the same period. "
+        "If performance chasing exists, large positive excess returns should precede inflow bars in subsequent periods — "
+        "look for the line leading the bars by 1–2 periods."
     )
 
 # --- All-ETF comparison ---
@@ -300,8 +298,8 @@ if len(all_stats_df) > 0:
                                    showlegend=False)
         st.plotly_chart(fig_box_dist, width="stretch")
         st.caption(
-            "Box-and-whisker plot of pooled flow observations. Box spans P25–P75 (interquartile range); "
-            "line inside = median. Whiskers extend to 1.5× IQR. Wider boxes indicate greater flow dispersion."
+            "All period-level flow observations pooled by group. Compare interquartile range and tail extent "
+            "to assess whether ARK funds experience more extreme flow events than passive tech peers."
         )
 
     with col_vol:
@@ -320,8 +318,8 @@ if len(all_stats_df) > 0:
         )
         st.plotly_chart(fig_vol, width="stretch")
         st.caption(
-            "Standard deviation of net flows per ETF — a measure of flow volatility. "
-            "Higher σ implies more unpredictable investor behavior and larger tail events."
+            "ETFs with high flow σ experience more extreme inflow/outflow episodes, "
+            "likely reflecting higher retail ownership, media attention, or concentrated investor bases."
         )
 
     # Summary table
@@ -386,9 +384,9 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_r2, width="stretch")
             st.caption(
-                "Each point = R² from a separate OLS regression of current-period flow on the return "
-                f"lagged by k {freq_label}. The peak identifies the horizon at which past returns have "
-                "the strongest univariate explanatory power for flows. Higher R² = more variance explained."
+                "Each point = R² from a separate OLS: Flow(t) = α + β·Return(t−k) + ε. "
+                "The peak identifies the lag at which past returns have the strongest univariate "
+                "predictive power for current-period flows."
             )
         else:
             st.info("Not enough data for R² profile.")
@@ -426,11 +424,10 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_cc, width="stretch")
             st.caption(
-                "Sample Pearson correlation between z-scored flow(t) and z-scored return(t−k). "
-                "**Positive lags (right half)**: does past return predict current flow? A positive green bar = "
-                "inflows follow positive returns (chasing). "
-                "**Negative lags (left half)**: does current flow predict future return? "
-                "Green bars = significant at 5%. Red dashed lines = 95% confidence band under H₀: ρ=0 (±1.96/√N)."
+                "Pearson correlation corr(z-flow(t), z-return(t−k)) at each lag k. "
+                "**Positive lags** (right): does past return predict current flow? "
+                "**Negative lags** (left): does current flow predict future return? "
+                "Bars exceeding the dashed confidence band (±1.96/√N) are significant at the 5% level."
             )
         else:
             st.info("Not enough data for cross-correlation.")
@@ -529,10 +526,9 @@ if len(dd_all) > 0:
         )
         st.plotly_chart(fig_dd_price, width="stretch")
         st.caption(
-            f"Cumulative-return price index for {selected_etf} (base = 100 at start of sample). "
-            "Red-shaded regions = identified drawdown episodes (non-overlapping, deepest-first, ≥ 10% decline). "
-            "Labels show peak-to-trough depth. The algorithm splits the timeline at each identified "
-            "drawdown and searches the remaining segments for the next deepest decline."
+            "Price index constructed from cumulative returns (base = 100). Drawdown episodes identified "
+            "using an iterative deepest-first algorithm: find the largest peak-to-trough decline (≥ 10%), "
+            "remove that segment, repeat on remaining periods. Labels show depth (%)."
         )
 
     # Compute flow analysis
@@ -555,8 +551,8 @@ if len(dd_all) > 0:
                 )
                 st.plotly_chart(fig_scat, width="stretch")
                 st.caption(
-                    "Each dot = one drawdown episode (across all ETFs). X-axis: drawdown depth (more negative = deeper). "
-                    "Y-axis: total net flow in the 1 month after the trough. A negative slope = deeper drawdowns followed by larger outflows."
+                    "Each dot = one drawdown episode across all 38 ETFs. A negative slope would indicate deeper "
+                    "drawdowns trigger larger outflows (panic selling); a positive slope suggests contrarian buying."
                 )
 
         with col_scat2:
@@ -573,7 +569,7 @@ if len(dd_all) > 0:
                 )
                 st.plotly_chart(fig_scat3, width="stretch")
                 st.caption(
-                    "Same as left panel but with a 3-month forward window. Longer horizons capture delayed investor reactions."
+                    "3-month forward window captures delayed investor reactions beyond the immediate post-trough period."
                 )
 
         # Regression table
@@ -640,10 +636,9 @@ if len(all_r2) > 0:
     )
     st.plotly_chart(fig_hm, width="stretch")
     st.caption(
-        "Each cell = R² from OLS: Flow(t) = α + β·Return(t−k) + ε for one ETF at one lag k. "
-        "Brighter = higher R² = stronger univariate predictive power. ★ = ARK ETF. "
-        "Rows sorted: ARK first, then peers, each by descending peak R². "
-        "A bright column at lag 1 across many ETFs means performance chasing is primarily a one-period phenomenon."
+        "Each cell: R² from OLS Flow(t) = α + β·Return(t−k) + ε. ★ = ARK ETF. "
+        "A bright vertical band at one lag across many ETFs indicates a common chasing horizon; "
+        "scattered bright cells suggest heterogeneous investor behavior across funds."
     )
 
     # Peak lag distribution
@@ -675,8 +670,8 @@ if len(all_r2) > 0:
         fig_box.update_layout(height=300, yaxis_title="Peak R²", showlegend=False)
         st.plotly_chart(fig_box, width="stretch")
         st.caption(
-            "Peak R² at the optimal lag, compared between ARK and peer ETFs. "
-            "Higher values = past returns explain a larger share of flow variation for that ETF."
+            "Compares the strength of performance chasing (peak R²) between groups. "
+            "A systematically higher distribution for ARK would suggest their investors are more return-sensitive."
         )
 else:
     st.warning("Not enough data for lag profile heatmap.")
@@ -726,10 +721,9 @@ if len(seasonal) > 0:
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
     st.plotly_chart(fig_s, width="stretch")
     st.caption(
-        "Mean daily flow by calendar month, averaged across all years in the sample. "
-        "Error bars = ± one standard error (σ/√N). Green = months with average net inflow; "
-        "red = average net outflow. A significantly negative December bar combined with a positive "
-        "January bar would support the tax-loss harvesting / January reallocation hypothesis."
+        "Mean daily flow by calendar month, pooled across all years. Error bars = ± one standard error (σ/√N). "
+        "A negative December bar combined with a positive January bar would support the "
+        "tax-loss harvesting / January reallocation hypothesis."
     )
 
     # January t-test
@@ -770,10 +764,9 @@ if len(seasonal) > 0:
         fig_io.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
         st.plotly_chart(fig_io, width="stretch")
         st.caption(
-            "Conditional averages: green = mean flow on inflow days (flow > 0); red = mean flow on outflow "
-            "days (flow < 0), computed separately per calendar month. This isolates whether seasonal patterns "
-            "are driven by larger inflows, larger outflows, or both. E.g., if December shows a larger red bar "
-            "than other months, it means outflow days in December involve heavier selling — consistent with tax-loss harvesting."
+            "Conditional on flow direction: average magnitude on inflow days vs outflow days per month. "
+            "This isolates whether seasonal patterns are driven by larger inflows, larger outflows, or both. "
+            "A deeper outflow bar in December = heavier selling on outflow days, consistent with tax-loss harvesting."
         )
 else:
     st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
@@ -864,9 +857,8 @@ if len(etf_df_sec6) > 0 and not etf_df_sec6[exc_col].dropna().empty:
         )
         st.plotly_chart(fig_cmp, width="stretch")
         st.caption(
-            "R² profiles for two univariate regressions: (1) Flow ~ own Return(t−k), (2) Flow ~ ExcessReturn(t−k). "
-            "If the orange (excess) curve lies above the blue (absolute) curve, investors respond more to relative "
-            "than absolute performance at that horizon."
+            "R² from two univariate regressions: Flow ~ Return(t−k) vs Flow ~ ExcessReturn(t−k). "
+            "If the excess curve dominates, investors respond more to relative performance than absolute gains/losses."
         )
 
 # All ETFs bar chart
@@ -895,9 +887,9 @@ if len(rp_summary) > 0:
     )
     st.plotly_chart(fig_rp, width="stretch")
     st.caption(
-        "Grouped bar chart: R² from three OLS models per ETF using automatically selected lags. "
-        "Blue = absolute return only; orange = excess return only; green = both combined. "
-        "ETFs where the orange bar exceeds blue show stronger response to relative than absolute performance."
+        "R² from three OLS specifications per ETF (automatic lag selection). ETFs where excess R² exceeds "
+        "absolute R² show stronger sensitivity to relative performance. The combined model tests whether both "
+        "absolute and relative returns contribute independently."
     )
 
     display_cols = ["ETF", "Source", "R²_Absolute", "R²_Excess", "R²_Combined"]
@@ -965,8 +957,8 @@ if len(asym_summary) > 0:
     )
     st.plotly_chart(fig_asym, width="stretch")
     st.caption(
-        "Green = average β⁺ (gain-chasing coefficient); red = |average β⁻| (loss-fleeing coefficient, shown as absolute value). "
-        "If green > red for an ETF, investors react more to positive past returns than to negative ones."
+        "Compares gain sensitivity (β⁺) to loss sensitivity (|β⁻|) per ETF. When β⁺ > |β⁻|, investors chase "
+        "gains more aggressively than they flee losses — asymmetric performance chasing."
     )
 
     # Summary table
@@ -1123,7 +1115,7 @@ with st.spinner("Running panel regressions (5 specifications)..."):
             # Data coverage heatmap
             st.subheader("Data Coverage")
             st.caption(
-                "Number of non-missing observations per ETF per calendar year. Darker = more data. "
+                "Non-missing observations per ETF per year. "
                 "Sparse coverage for newer ETFs in early years may reduce panel regression precision for those entities."
             )
             coverage = panel_df.groupby(
