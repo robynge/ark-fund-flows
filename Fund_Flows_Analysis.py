@@ -751,8 +751,8 @@ st.header("5. Seasonality")
 st.markdown("""
 If fund flows are driven by **calendar effects** (e.g., tax-loss harvesting in
 December, reallocation in January), the performance-chasing signal from Sections 2–4
-could be a confound. This section tests for monthly seasonality using daily flow data,
-which provides more granularity than the aggregated data used elsewhere.
+could be a confound. This section tests for monthly seasonality by aggregating daily flows
+into calendar-month totals, then averaging across years.
 """)
 
 # Always use daily data for seasonality analysis
@@ -769,7 +769,15 @@ if date_start is not None and date_end is not None:
 etf_daily = daily_df[daily_df["ETF"] == selected_etf]
 
 daily_fc = "Flow_Pct" if flow_unit == "pct" and "Flow_Pct" in daily_df.columns and daily_df["Flow_Pct"].notna().any() else "Fund_Flow"
-seasonal = seasonality_analysis(etf_daily, daily_fc)
+
+# Aggregate daily flows to monthly totals for seasonality analysis
+etf_monthly_agg = etf_daily.copy()
+etf_monthly_agg["YearMonth"] = etf_monthly_agg["Date"].dt.to_period("M")
+etf_monthly_agg = etf_monthly_agg.groupby("YearMonth")[daily_fc].sum().reset_index()
+etf_monthly_agg["Date"] = etf_monthly_agg["YearMonth"].dt.to_timestamp()
+etf_monthly_agg = etf_monthly_agg.drop(columns=["YearMonth"])
+
+seasonal = seasonality_analysis(etf_monthly_agg, daily_fc)
 
 if len(seasonal) > 0:
     st.subheader(f"{selected_etf} — Average Flow by Month")
@@ -781,7 +789,7 @@ if len(seasonal) > 0:
                      visible=True),
         hovertemplate="Month: %{x}<br>Avg Flow: %{y:.2f}<extra></extra>",
     ))
-    daily_ylabel = "Avg Daily Flow (% AUM)" if daily_fc == "Flow_Pct" else "Avg Daily Flow ($M)"
+    daily_ylabel = "Avg Monthly Flow (% AUM)" if daily_fc == "Flow_Pct" else "Avg Monthly Flow ($M)"
     fig_s.update_layout(height=380, yaxis_title=daily_ylabel,
                         margin=dict(l=60, r=40, t=30, b=30))
     if daily_fc == "Flow_Pct":
@@ -789,28 +797,28 @@ if len(seasonal) > 0:
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
     st.plotly_chart(fig_s, width="stretch")
     st.caption(
-        "Mean daily flow by calendar month, pooled across all years. Error bars = ± one standard error (σ/√N). "
+        "Mean monthly flow by calendar month, pooled across all years. Error bars = ± one standard error (σ/√N). "
         "A negative December bar combined with a positive January bar would support the "
         "tax-loss harvesting / January reallocation hypothesis."
     )
 
     # January t-test
-    jan = etf_daily[etf_daily["Date"].dt.month == 1][daily_fc].dropna()
-    other = etf_daily[etf_daily["Date"].dt.month != 1][daily_fc].dropna()
+    jan = etf_monthly_agg[etf_monthly_agg["Date"].dt.month == 1][daily_fc].dropna()
+    other = etf_monthly_agg[etf_monthly_agg["Date"].dt.month != 1][daily_fc].dropna()
     if len(jan) > 5 and len(other) > 5:
         t_stat, p_val = stats.ttest_ind(jan, other, equal_var=False)
         c1, c2, c3 = st.columns(3)
-        jan_unit = "% AUM/day" if daily_fc == "Flow_Pct" else "$M/day"
+        jan_unit = "% AUM/mo" if daily_fc == "Flow_Pct" else "$M/mo"
         c1.metric(f"Jan Avg ({jan_unit})", f"{jan.mean():.2f}")
         c2.metric("Other Months Avg", f"{other.mean():.2f}")
         c3.metric("Jan vs Others p-value", f"{p_val:.4f}")
         st.caption(
-            "Welch's two-sample t-test (unequal variances) comparing mean daily flow in January vs all "
+            "Welch's two-sample t-test (unequal variances) comparing mean monthly flow in January vs all "
             "other months. p < 0.05 indicates January flows are statistically different from the annual baseline."
         )
 
     # Inflow / Outflow breakdown
-    io_data = seasonality_inflow_outflow(etf_daily, daily_fc)
+    io_data = seasonality_inflow_outflow(etf_monthly_agg, daily_fc)
     if len(io_data) > 0:
         st.subheader(f"{selected_etf} — Inflow vs Outflow by Month")
         fig_io = go.Figure()
@@ -834,9 +842,9 @@ if len(seasonal) > 0:
             fig_io.update_yaxes(ticksuffix="%")
         st.plotly_chart(fig_io, width="stretch")
         st.caption(
-            "Conditional on flow direction: average magnitude on inflow days vs outflow days per month. "
+            "Conditional on flow direction: average magnitude of net-inflow months vs net-outflow months per calendar month. "
             "This isolates whether seasonal patterns are driven by larger inflows, larger outflows, or both. "
-            "A deeper outflow bar in December = heavier selling on outflow days, consistent with tax-loss harvesting."
+            "A deeper outflow bar in December = heavier selling in outflow months, consistent with tax-loss harvesting."
         )
 else:
     st.warning(f"Not enough daily data for {selected_etf} seasonality analysis.")
