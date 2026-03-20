@@ -26,6 +26,13 @@ from scipy import stats
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.title("Do ETF Investors Chase Past Performance?")
 
+# Reduce st.metric value font size
+st.markdown("""
+<style>
+[data-testid="stMetricValue"] { font-size: 1.1rem; }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 This dashboard investigates whether ETF investors chase past performance across
 **38 tech ETFs** (9 ARK + 29 tech peers). We use Bloomberg daily net fund flow
@@ -210,12 +217,11 @@ if len(etf_dist) > 0:
             lambda v: f"{v:.4f}" if abs(v) < 1 else f"{v:.2f}")
         st.dataframe(pct_df_display, hide_index=True, width="stretch")
 
-        st.markdown(
-            f"**Mean**: {etf_dist.mean():.2f} &emsp; "
-            f"**Std Dev**: {etf_dist.std():.2f} &emsp; "
-            f"**Skewness**: {etf_dist.skew():.2f} &emsp; "
-            f"**N**: {len(etf_dist):,}"
-        )
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Mean", f"{etf_dist.mean():.2f}")
+        mc2.metric("Std Dev", f"{etf_dist.std():.2f}")
+        mc3.metric("Skewness", f"{etf_dist.skew():.2f}")
+        mc4.metric("N", f"{len(etf_dist):,}")
 
 # --- Monthly time series: flow bars + excess return line ---
 etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
