@@ -142,11 +142,11 @@ else:
 if flow_unit == "pct" and "Flow_Pct" in df.columns and df["Flow_Pct"].notna().any():
     fc = "Flow_Pct"
     fc_z = "Flow_Pct_Z" if "Flow_Pct_Z" in df.columns else fc
-    flow_ylabel = "Flow (% of AUM)"
+    flow_ylabel = "Fund Flow (% of AUM)"
 else:
     fc = fc_raw
     fc_z = fc_z_raw
-    flow_ylabel = "Flow ($M)"
+    flow_ylabel = "Fund Flow ($M)"
     if flow_unit == "pct":
         st.sidebar.warning("AUM data unavailable — showing raw $ flows.")
 
@@ -263,15 +263,19 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
                   for v in etf_ts_s1[fc].fillna(0)]
 
     fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
+    flow_hover_fmt = ".2f" if fc == "Flow_Pct" else ",.1f"
+    flow_suffix = "%" if fc == "Flow_Pct" else ""
     fig_dual.add_trace(
         go.Bar(x=etf_ts_s1["Date"], y=etf_ts_s1[fc],
-               marker_color=bar_colors, name=flow_ylabel, opacity=0.7),
+               marker_color=bar_colors, name="Fund Flow", opacity=0.7,
+               hovertemplate=f"Fund Flow: %{{y:{flow_hover_fmt}}}{flow_suffix}<extra></extra>"),
         secondary_y=False,
     )
     fig_dual.add_trace(
         go.Scatter(x=etf_ts_s1["Date"], y=etf_ts_s1[exc_col],
                    mode="lines", name="Excess Return",
-                   line=dict(color="#1f77b4", width=1.5)),
+                   line=dict(color="#1f77b4", width=1.5),
+                   hovertemplate="Excess Return: %{y:.2f}%<extra></extra>"),
         secondary_y=True,
     )
     fig_dual.update_yaxes(title_text=flow_ylabel, secondary_y=False)
@@ -279,6 +283,7 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
     fig_dual.update_layout(
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
+        hovermode="x unified",
     )
     # Annotate top inflow and top outflow months
     flow_series = etf_ts_s1[[fc, "Date"]].dropna(subset=[fc])
