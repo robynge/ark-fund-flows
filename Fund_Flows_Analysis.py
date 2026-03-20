@@ -504,8 +504,9 @@ if len(etf_df) > 0:
             st.plotly_chart(fig_cc, width="stretch")
             st.caption(
                 "Unlike the R² profile (left panel), this is not a regression — it shows the raw "
-                "Pearson correlation between z-scored flows and z-scored returns at each lag. "
-                "corr(z-flow(t), z-return(t−k)) at each lag k. "
+                "Pearson correlation between z-scored flows and z-scored returns at each lag k: "
+                "r = Σ(zFlow · zReturn) / (N−1), where z = (x − mean) / std. "
+                "r ranges from −1 (perfect negative) to +1 (perfect positive). "
                 "**Positive lags** (right): does past return predict current flow? "
                 "**Negative lags** (left): does current flow predict future return? "
                 "Bars exceeding the dashed confidence band (±1.96/√N) are significant at the 5% level."
