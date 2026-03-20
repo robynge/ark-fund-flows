@@ -396,7 +396,7 @@ if len(all_stats_df) > 0:
         st.plotly_chart(fig_vol, width="stretch")
         st.caption(
             "Flow volatility = standard deviation of period-level net fund flows across the full sample for each ETF. "
-            "Higher σ implies more extreme inflow/outflow episodes, "
+            "Higher $\\sigma$ implies more extreme inflow/outflow episodes, "
             "likely reflecting higher retail ownership, media attention, or concentrated investor bases."
         )
 
@@ -462,9 +462,9 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_r2, width="stretch")
             st.caption(
-                "For each lag k, we regress Flow(t) on Return(t−k). "
-                "R² = 1 − SS_res/SS_tot, i.e. how much of the variation in flows can be explained by that single lagged return "
-                "(0% = no explanatory power, 100% = perfect fit). "
+                "For each lag $k$, we regress $\\text{Flow}(t)$ on $\\text{Return}(t-k)$. "
+                "$R^2 = 1 - SS_{\\text{res}}/SS_{\\text{tot}}$, i.e. how much of the variation in flows "
+                "can be explained by that single lagged return (0% = no explanatory power, 100% = perfect fit). "
                 "The peak identifies the lag at which past returns best predict current-period flows."
             )
         else:
@@ -503,13 +503,13 @@ if len(etf_df) > 0:
             )
             st.plotly_chart(fig_cc, width="stretch")
             st.caption(
-                "Unlike the R² profile (left panel), this is not a regression — it shows the raw "
-                "Pearson correlation between z-scored flows and z-scored returns at each lag k: "
-                "r = Σ(zFlow · zReturn) / (N−1), where z = (x − mean) / std. "
-                "r ranges from −1 (perfect negative) to +1 (perfect positive). "
+                "Unlike the $R^2$ profile (left panel), this is not a regression — it shows the raw "
+                "Pearson correlation between z-scored flows and z-scored returns at each lag $k$: "
+                "$r = \\sum(z_{\\text{flow}} \\cdot z_{\\text{ret}})\\,/\\,(N-1)$, where $z = (x - \\bar{x})/s$. "
+                "$r$ ranges from $-1$ (perfect negative) to $+1$ (perfect positive). "
                 "**Positive lags** (right): does past return predict current flow? "
                 "**Negative lags** (left): does current flow predict future return? "
-                "Bars exceeding the dashed confidence band (±1.96/√N) are significant at the 5% level."
+                "Bars exceeding the dashed confidence band ($\\pm 1.96/\\sqrt{N}$) are significant at the 5% level."
             )
         else:
             st.info("Not enough data for cross-correlation.")
@@ -518,12 +518,12 @@ if len(etf_df) > 0:
     st.subheader("Summary: All ETFs")
     st.caption(
         f"{n_valid} ETFs with sufficient data ({n_ark} ARK + {n_peer} peers). "
-        "Peak Lag = the lag k* that maximizes R². F-stat tests H₀: β=0 (the slope is zero); "
-        "a large F-stat means the relationship is statistically distinguishable from zero even if R² is low. "
+        "Peak Lag = the lag $k^*$ that maximizes $R^2$. F-stat tests $H_0: \\beta=0$ (the slope is zero); "
+        "a large F-stat means the relationship is statistically distinguishable from zero even if $R^2$ is low. "
         "Peak p-value = two-sided p-value for the slope coefficient at the optimal lag. "
-        "Note: R² below 5% is typical in fund-flow prediction — flows are inherently noisy. "
-        "The F-statistic is a more appropriate test: a large F (small p) confirms the relationship is "
-        "statistically real even when R² is modest."
+        "Note: $R^2$ below 5% is typical in fund-flow prediction — flows are inherently noisy. "
+        "The F-statistic is a more appropriate test: a large $F$ (small $p$) confirms the relationship is "
+        "statistically real even when $R^2$ is modest."
     )
 
     @st.cache_data(show_spinner="Computing R² profiles...")
@@ -664,9 +664,9 @@ if len(dd_all) > 0:
             st.caption(
                 "OLS regression of cumulative post-trough flows on drawdown characteristics, pooled across all ETFs. "
                 "Each row = a different forward horizon (1m, 2m, 3m, 6m). "
-                "β_Depth: change in cumulative flow per 1 pp deeper drawdown. "
-                "β_Duration: change in cumulative flow per additional trading day of drawdown. "
-                "Significant β_Depth_p < 0.05 confirms that drawdown severity predicts subsequent flow behavior."
+                "$\\beta_{\\text{Depth}}$: change in cumulative flow per 1 pp deeper drawdown. "
+                "$\\beta_{\\text{Duration}}$: change in cumulative flow per additional trading day of drawdown. "
+                "Significant $p_{\\beta_{\\text{Depth}}} < 0.05$ confirms that drawdown severity predicts subsequent flow behavior."
             )
             st.dataframe(
                 dd_reg.style.format({
@@ -721,8 +721,8 @@ if len(all_r2) > 0:
     )
     st.plotly_chart(fig_hm, width="stretch")
     st.caption(
-        "Each cell: R² from OLS Flow(t) = α + β·Return(t−k) + ε. ★ = ARK ETF. "
-        "Warmer colors (darker red) = higher R². "
+        "Each cell: $R^2$ from OLS $\\text{Flow}(t) = \\alpha + \\beta \\cdot \\text{Return}(t-k) + \\varepsilon$. "
+        "★ = ARK ETF. Warmer colors (darker red) = higher $R^2$. "
         "A bright vertical band at one lag across many ETFs indicates a common chasing horizon; "
         "scattered bright cells suggest heterogeneous investor behavior across funds."
     )
@@ -817,7 +817,7 @@ if len(seasonal) > 0:
     fig_s.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
     st.plotly_chart(fig_s, width="stretch")
     st.caption(
-        "Mean monthly flow by calendar month, pooled across all years. Error bars = ± one standard error (σ/√N). "
+        "Mean monthly flow by calendar month, pooled across all years. Error bars = $\\pm$ one standard error ($\\sigma/\\sqrt{N}$). "
         "A negative December bar combined with a positive January bar would support the "
         "tax-loss harvesting / January reallocation hypothesis."
     )
@@ -1087,7 +1087,8 @@ if len(asym_summary) > 0:
     )
     st.plotly_chart(fig_asym, width="stretch")
     st.caption(
-        "Compares gain sensitivity (β⁺) to loss sensitivity (|β⁻|) per ETF. When β⁺ > |β⁻|, investors chase "
+        "Compares gain sensitivity ($\\beta^+$) to loss sensitivity ($|\\beta^-|$) per ETF. "
+        "When $\\beta^+ > |\\beta^-|$, investors chase "
         "gains more aggressively than they flee losses — asymmetric performance chasing."
     )
 
@@ -1188,10 +1189,10 @@ with st.spinner("Running panel regressions (5 specifications)..."):
             # Model comparison table
             st.subheader("5-Specification Comparison")
             st.caption(
-                "R²_within: fraction of within-entity (demeaned) variation explained — measures how well lagged returns "
-                "predict flows after removing each ETF's average flow level. R²_overall: fraction of total variation explained. "
-                "F_stat: joint test that all slope coefficients = 0; large F with small F_pval confirms the model has "
-                "explanatory power. Coefficient columns show the estimated β and its p-value for each regressor."
+                "$R^2_{\\text{within}}$: fraction of within-entity (demeaned) variation explained — measures how well lagged returns "
+                "predict flows after removing each ETF's average flow level. $R^2_{\\text{overall}}$: fraction of total variation explained. "
+                "$F$-stat: joint test that all slope coefficients $= 0$; large $F$ with small $p$ confirms the model has "
+                "explanatory power. Coefficient columns show the estimated $\\beta$ and its $p$-value for each regressor."
             )
             fmt_dict = {
                 "R²_within": "{:.4f}", "R²_overall": "{:.4f}",
@@ -1210,9 +1211,9 @@ with st.spinner("Running panel regressions (5 specifications)..."):
             # Entity fixed effects
             st.subheader("Entity Fixed Effects")
             st.caption(
-                "Estimated entity fixed effects (αᵢ) from the Entity FE model. Each bar represents an ETF's "
-                "baseline flow level after controlling for lagged returns. Positive αᵢ = the ETF attracts "
-                "flows beyond what its past returns predict (strong brand/momentum); negative αᵢ = structural outflows "
+                "Estimated entity fixed effects ($\\alpha_i$) from the Entity FE model. Each bar represents an ETF's "
+                "baseline flow level after controlling for lagged returns. Positive $\\alpha_i$ = the ETF attracts "
+                "flows beyond what its past returns predict (strong brand/momentum); negative $\\alpha_i$ = structural outflows "
                 "unexplained by returns."
             )
             min_n = panel_df.groupby("ETF")[fc].apply(
