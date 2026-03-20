@@ -19,7 +19,6 @@ from analysis import (
     asymmetry_regression, asymmetry_all_etfs,
     panel_regression, panel_regression_comparison,
     seasonality_analysis, seasonality_inflow_outflow,
-    compute_etf_drawdowns, drawdown_flow_analysis, drawdown_flow_regression,
 )
 from scipy import stats
 
@@ -248,7 +247,7 @@ if fc == "Flow_Pct":
 # --- Monthly time series: flow bars + excess return line ---
 etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
 if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
-    st.subheader(f"{selected_etf}: Monthly Flow & Excess Return")
+    st.subheader(f"{selected_etf}: Monthly Fund Flow & Price")
 
     bench_s1 = st.radio(
         "Benchmark", ["SPY", "QQQ", "Peer Average"],
@@ -299,7 +298,7 @@ if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
     fig_dual.update_layout(
         height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30),
-        hovermode="x unified", xaxis_rangeslider_visible=False,
+        hovermode="x unified", xaxis_rangeslider_visible=True,
     )
     # Annotate top inflow and top outflow months
     flow_series = etf_ts_s1[[fc, "Date"]].dropna(subset=[fc])
@@ -560,135 +559,10 @@ else:
 
 
 # ============================================================
-# Section 3 — Drawdown Analysis
+# Section 3 — How Long Does the Effect Last?
 # ============================================================
 st.markdown("---")
-st.header("3. Drawdown Analysis")
-st.markdown("""
-We identify **non-overlapping drawdown episodes** (peak-to-trough declines ≥ 10%)
-for each ETF using an iterative deepest-first algorithm on a cumulative-return price index.
-For each episode, we measure cumulative net flows over the 1, 2, 3, and 6 months following
-the trough, then regress those post-drawdown flows on the drawdown's depth and duration:
-""")
-st.latex(r"CumFlow_{i,[t,t+h]} = \alpha + \beta_1 \cdot DrawdownDepth_i + \beta_2 \cdot Duration_i + \varepsilon")
-st.markdown("""
-- **CumFlow**: sum of net flows from trough date *t* to *t + h* months.
-- **DrawdownDepth**: peak-to-trough decline in %, negative (e.g., −30% means a 30% drop).
-- **Duration**: number of trading days from peak to trough.
-- **Interpretation**: β₁ < 0 would mean deeper drawdowns lead to *larger outflows* (panic selling);
-  β₁ > 0 would suggest contrarian buying after steep declines.
-""")
-
-@st.cache_data(show_spinner="Computing drawdowns...")
-def compute_drawdowns(_df, return_col, _time_key=None):
-    return compute_etf_drawdowns(_df, return_col, min_depth_pct=10.0)
-
-dd_all = compute_drawdowns(df_valid, rc, _time_key=_time_key)
-
-if len(dd_all) > 0:
-    # Chart 1: price index with drawdown shading for selected ETF
-    etf_dd = dd_all[dd_all["ETF"] == selected_etf]
-    etf_prices = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
-
-    if len(etf_prices) > 10:
-        price_idx = (1 + etf_prices.set_index("Date")[rc].dropna()).cumprod() * 100
-
-        fig_dd_price = go.Figure()
-        fig_dd_price.add_trace(go.Scatter(
-            x=price_idx.index, y=price_idx.values,
-            mode="lines", name="Price Index", line=dict(color="#1f77b4", width=1.5),
-        ))
-        for _, dd_row in etf_dd.iterrows():
-            fig_dd_price.add_vrect(
-                x0=dd_row["peak_date"], x1=dd_row["trough_date"],
-                fillcolor="red", opacity=0.15, line_width=0,
-                annotation_text=f"{dd_row['depth_pct']:.0f}%",
-                annotation_position="top left",
-                annotation_font_size=9,
-            )
-        fig_dd_price.update_layout(
-            height=400, yaxis_title="Price Index (base=100)",
-            title=f"{selected_etf}: Price Index with Drawdown Periods",
-            margin=dict(l=60, r=30, t=40, b=30),
-        )
-        st.plotly_chart(fig_dd_price, width="stretch")
-        st.caption(
-            "Price index constructed from cumulative returns (base = 100). Drawdown episodes identified "
-            "using an iterative deepest-first algorithm: find the largest peak-to-trough decline (≥ 10%), "
-            "remove that segment, repeat on remaining periods. Labels show depth (%)."
-        )
-
-    # Compute flow analysis
-    dd_flow = drawdown_flow_analysis(df_valid, dd_all, fc)
-
-    if len(dd_flow) > 0:
-        # Chart 2: scatter — drawdown depth vs cumulative flow (1m)
-        col_scat1, col_scat2 = st.columns(2)
-        with col_scat1:
-            if "CumFlow_1m" in dd_flow.columns:
-                fig_scat = px.scatter(
-                    dd_flow, x="depth_pct", y="CumFlow_1m",
-                    color="ETF", hover_data=["trough_date", "duration_days"],
-                    title="Drawdown Depth vs 1-Month Cumulative Flow",
-                )
-                fig_scat.update_layout(
-                    height=400, xaxis_title="Drawdown Depth (%)",
-                    yaxis_title=f"Cumulative Flow 1m ({flow_ylabel})",
-                    showlegend=False,
-                )
-                st.plotly_chart(fig_scat, width="stretch")
-                st.caption(
-                    "Each dot = one drawdown episode across all 38 ETFs. A negative slope would indicate deeper "
-                    "drawdowns trigger larger outflows (panic selling); a positive slope suggests contrarian buying."
-                )
-
-        with col_scat2:
-            if "CumFlow_3m" in dd_flow.columns:
-                fig_scat3 = px.scatter(
-                    dd_flow, x="depth_pct", y="CumFlow_3m",
-                    color="ETF", hover_data=["trough_date", "duration_days"],
-                    title="Drawdown Depth vs 3-Month Cumulative Flow",
-                )
-                fig_scat3.update_layout(
-                    height=400, xaxis_title="Drawdown Depth (%)",
-                    yaxis_title=f"Cumulative Flow 3m ({flow_ylabel})",
-                    showlegend=False,
-                )
-                st.plotly_chart(fig_scat3, width="stretch")
-                st.caption(
-                    "3-month forward window captures delayed investor reactions beyond the immediate post-trough period."
-                )
-
-        # Regression table
-        dd_reg = drawdown_flow_regression(dd_flow)
-        if len(dd_reg) > 0:
-            st.subheader("Post-Drawdown Flow Regression")
-            st.caption(
-                "OLS regression of cumulative post-trough flows on drawdown characteristics, pooled across all ETFs. "
-                "Each row = a different forward horizon (1m, 2m, 3m, 6m). "
-                "$\\beta_{\\text{Depth}}$: change in cumulative flow per 1 pp deeper drawdown. "
-                "$\\beta_{\\text{Duration}}$: change in cumulative flow per additional trading day of drawdown. "
-                "Significant $p_{\\beta_{\\text{Depth}}} < 0.05$ confirms that drawdown severity predicts subsequent flow behavior."
-            )
-            st.dataframe(
-                dd_reg.style.format({
-                    "β_Depth": "{:.4f}", "β_Depth_p": "{:.4f}",
-                    "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}",
-                    "R²": "{:.4f}",
-                }),
-                hide_index=True, width="stretch",
-            )
-    else:
-        st.info("Not enough post-drawdown flow data for analysis.")
-else:
-    st.info("No drawdowns ≥ 10% found in the selected time range.")
-
-
-# ============================================================
-# Section 4 — How Long Does the Effect Last?
-# ============================================================
-st.markdown("---")
-st.header("4. How Long Does the Effect Last?")
+st.header("3. How Long Does the Effect Last?")
 st.markdown("""
 Section 2 tested performance chasing for one ETF at a time. Here we visualize the
 **lag structure across all 38 ETFs simultaneously** to answer: is the effect concentrated
@@ -766,10 +640,10 @@ else:
 
 
 # ============================================================
-# Section 5 — Seasonality
+# Section 4 — Seasonality
 # ============================================================
 st.markdown("---")
-st.header("5. Seasonality")
+st.header("4. Seasonality")
 st.markdown("""
 If fund flows are driven by **calendar effects** (e.g., tax-loss harvesting in
 December, reallocation in January), the performance-chasing signal from Sections 2–4
@@ -873,10 +747,10 @@ else:
 
 
 # ============================================================
-# Section 6 — Absolute vs Relative Performance
+# Section 5 — Absolute vs Relative Performance
 # ============================================================
 st.markdown("---")
-st.header("6. Absolute vs Relative Performance")
+st.header("5. Absolute vs Relative Performance")
 
 _bench_desc = {
     "SPY": "S&P 500 (SPY)", "QQQ": "Nasdaq-100 (QQQ)", "peer_avg": "peer-group average",
@@ -1042,10 +916,10 @@ else:
 
 
 # ============================================================
-# Section 7 — Asymmetric Response
+# Section 6 — Asymmetric Response
 # ============================================================
 st.markdown("---")
-st.header("7. Asymmetric Response")
+st.header("6. Asymmetric Response")
 st.markdown("""
 Sections 2–6 assume a **symmetric** relationship: a +10% return has the same magnitude effect
 on flows as a −10% return. Here we relax that assumption by decomposing lagged returns
@@ -1144,10 +1018,10 @@ else:
 
 
 # ============================================================
-# Section 8 — Panel Regression (Robustness)
+# Section 7 — Panel Regression (Robustness)
 # ============================================================
 st.markdown("---")
-st.header("8. Panel Regression (Robustness)")
+st.header("7. Panel Regression (Robustness)")
 
 benchmark_panel = st.radio(
     "Benchmark for excess return",
