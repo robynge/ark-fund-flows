@@ -830,6 +830,8 @@ if len(seasonal) > 0:
             margin=dict(l=60, r=40, t=40, b=30),
         )
         fig_io.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4)
+        if daily_fc == "Flow_Pct":
+            fig_io.update_yaxes(ticksuffix="%")
         st.plotly_chart(fig_io, width="stretch")
         st.caption(
             "Conditional on flow direction: average magnitude on inflow days vs outflow days per month. "
