@@ -328,17 +328,33 @@ if len(all_stats_df) > 0:
     col_box, col_vol = st.columns(2)
 
     with col_box:
-        # Box plot: flow distributions, ARK vs Peers
+        # Violin plot: flow distributions, ARK vs Peers
         flow_long = df_valid[df_valid["ETF"].isin(valid_etfs)][[fc, "ETF", "Is_ARK"]].dropna()
         flow_long["Source"] = flow_long["Is_ARK"].map({True: "ARK", False: "Tech Peers"})
-        fig_box_dist = px.box(
-            flow_long, x="Source", y=fc, color="Source",
-            color_discrete_map={"ARK": "#1f77b4", "Tech Peers": "#aec7e8"},
-            title="Flow Distribution: ARK vs Peers",
-            points=False,
+        fig_box_dist = go.Figure()
+        for source, color in [("ARK", "#1f77b4"), ("Tech Peers", "#aec7e8")]:
+            subset = flow_long[flow_long["Source"] == source][fc]
+            fig_box_dist.add_trace(go.Violin(
+                y=subset, name=source,
+                box_visible=True, meanline_visible=True,
+                line_color="black", fillcolor=color, opacity=0.85,
+                marker=dict(color=color, outliercolor=color),
+                points=False,
+            ))
+        fig_box_dist.update_layout(
+            height=380, title="Flow Distribution: ARK vs Peers",
+            yaxis_title=flow_ylabel,
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, bgcolor="rgba(0,0,0,0)"),
+            plot_bgcolor="white",
         )
-        fig_box_dist.update_layout(height=380, yaxis_title=flow_ylabel,
-                                   showlegend=False)
+        fig_box_dist.update_xaxes(
+            showline=True, linewidth=2, linecolor="black", showgrid=False,
+        )
+        fig_box_dist.update_yaxes(
+            showline=True, linewidth=2, linecolor="black",
+            showgrid=True, gridcolor="rgba(200,200,200,0.4)", gridwidth=0.5,
+        )
         st.plotly_chart(fig_box_dist, width="stretch")
         st.caption(
             "All period-level flow observations pooled by group. Compare interquartile range and tail extent "
