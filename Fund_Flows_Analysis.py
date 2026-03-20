@@ -220,6 +220,27 @@ if len(etf_dist) > 0:
         mc3.metric("Skewness", f"{etf_dist.skew():.2f}")
         mc4.metric("N", f"{len(etf_dist):,}")
 
+# Warn about extreme Flow_Pct observations for the selected ETF
+if fc == "Flow_Pct":
+    _etf_flow_pct = df_valid[df_valid["ETF"] == selected_etf][["Date", "Flow_Pct", "AUM"]].dropna()
+    _extreme = _etf_flow_pct[_etf_flow_pct["Flow_Pct"].abs() > 100].sort_values("Flow_Pct", key=abs, ascending=False)
+    if len(_extreme) > 0:
+        _etf_first_date = df_valid[df_valid["ETF"] == selected_etf]["Date"].min()
+        _lines = []
+        for _, _row in _extreme.iterrows():
+            _months_in = (_row["Date"].year - _etf_first_date.year) * 12 + (_row["Date"].month - _etf_first_date.month)
+            _reason = "inception month — seed AUM" if _months_in <= 2 else "single-month inflow exceeded beginning-of-period AUM"
+            _lines.append(
+                f"- **{_row['Date'].strftime('%Y-%m')}**: Flow_Pct = {_row['Flow_Pct']:.0f}%, "
+                f"AUM = ${_row['AUM']:.0f}M ({_reason})"
+            )
+        st.info(
+            f"**{selected_etf}** has {len(_extreme)} month(s) where |Flow % of AUM| > 100%. "
+            "This occurs when net flows in a single month exceed the fund's entire beginning-of-period AUM — "
+            "either because the ETF had just launched (small seed AUM) or because of a genuine massive "
+            "capital reallocation event.\n\n" + "\n".join(_lines)
+        )
+
 # --- Monthly time series: flow bars + excess return line ---
 etf_ts_s1 = df_valid[df_valid["ETF"] == selected_etf].copy().sort_values("Date")
 if len(etf_ts_s1) > 5 and exc_col in etf_ts_s1.columns:
