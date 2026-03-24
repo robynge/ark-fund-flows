@@ -5,3 +5,20 @@ __pycache__/
 .env
 venv/
 .venv/
+
+# Local working documents (not in git)
+factors_and_models.md
+experiment_log.md
+project_structure.md
+research_log.md
+
+# Data files (too large for git, stored in Dropbox)
+data/input/*.xlsx
+data/input/*.csv
+*.xlsx
+
+# Backup (local only)
+backup_v1/
+
+# Learning materials (local only)
+learning_materials/

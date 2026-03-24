@@ -6,11 +6,12 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-EXCEL_PATH = Path(__file__).parent.parent / "ARK ETF Fund Flows.xlsx"
-PEER_EXCEL_PATH = Path(__file__).parent.parent / "Peer Fund Flows.xlsx"
-ARK_AUM_PATH = Path(__file__).parent.parent / "ARK ETF AUM.xlsx"
-PEER_AUM_PATH = Path(__file__).parent.parent / "Peers AUM.xlsx"
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "data" / "input"
+
+EXCEL_PATH = DATA_DIR / "ARK ETF Fund Flows.xlsx"
+PEER_EXCEL_PATH = DATA_DIR / "Peer Fund Flows.xlsx"  # TODO: re-acquire with sector-matched peers
+ARK_AUM_PATH = DATA_DIR / "ARK ETF AUM.xlsx"
+PEER_AUM_PATH = DATA_DIR / "Peers AUM.xlsx"  # TODO: re-acquire with sector-matched peers
 
 ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
 PEER_ETF_NAMES = [
