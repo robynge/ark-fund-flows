@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import json
 from pathlib import Path
+from typing import Optional
 
 RESULTS_DIR = Path(__file__).parent.parent / "experiments" / "results"
 
@@ -25,7 +26,7 @@ def load_master():
 
 
 @st.cache_data
-def load_detail(experiment_id: str, model_name: str) -> pd.DataFrame | None:
+def load_detail(experiment_id: str, model_name: str) -> Optional[pd.DataFrame]:
     if experiment_id == "baseline":
         path = RESULTS_DIR / "baseline" / f"{model_name}.csv"
     else:
