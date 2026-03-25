@@ -11,7 +11,10 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from .macro_events import exclude_events, add_event_dummies, get_event_ids
+try:
+    from .macro_events import exclude_events, add_event_dummies, get_event_ids
+except ImportError:
+    from macro_events import exclude_events, add_event_dummies, get_event_ids
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "input"
 
