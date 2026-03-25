@@ -233,6 +233,10 @@ def load_all_etfs() -> pd.DataFrame:
             frames.append(load_single_etf(name))
         except Exception:
             continue
+    if not frames:
+        logger.warning("No ARK ETFs loaded from %s", EXCEL_PATH)
+        return pd.DataFrame(columns=["Date", "Fund_Flow", "Open", "High",
+                                      "Low", "Close", "Volume", "ETF"])
     return pd.concat(frames, ignore_index=True)
 
 

@@ -12,10 +12,8 @@ experiment_log.md
 project_structure.md
 research_log.md
 
-# Data files (too large for git, stored in Dropbox)
-data/input/*.xlsx
-data/input/*.csv
-*.xlsx
+# Root-level xlsx (backup copies etc.)
+/*.xlsx
 
 # Backup (local only)
 backup_v1/
