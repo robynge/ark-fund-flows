@@ -86,6 +86,17 @@ def run_model(model_name: str, df: pd.DataFrame,
     kwargs = dict(model_spec.get("kwargs", {}))  # copy to avoid mutation
     excess_col = "Excess_Return" if "Excess_Return" in df.columns else None
 
+    # Detect noise-factor control columns added by factors C, D, E
+    FACTOR_CONTROL_COLS = [
+        "VIX_Close",       # Factor C
+        "VIX_High",        # Factor C (regime_dummy mode)
+        "month_end",       # Factor D
+        "quarter_end",     # Factor D
+        "january",         # Factor D
+        "Peer_Agg_Flow",   # Factor E
+    ]
+    extra_controls = [c for c in FACTOR_CONTROL_COLS if c in df.columns]
+
     result = {
         "model": model_name,
         "r2": np.nan,
@@ -104,7 +115,8 @@ def run_model(model_name: str, df: pd.DataFrame,
             warnings.simplefilter("ignore")
 
             if model_name == "univariate_r2_by_lag":
-                r2_df = r_squared_by_lag_all_etfs(df, flow_col, return_col)
+                r2_df = r_squared_by_lag_all_etfs(df, flow_col, return_col,
+                                                   extra_controls)
                 if not r2_df.empty:
                     detail = r2_df
                     lag1 = r2_df[r2_df["lag"] == 1]
@@ -122,7 +134,8 @@ def run_model(model_name: str, df: pd.DataFrame,
                 min_n = df.groupby("ETF")[flow_col].apply(lambda x: x.notna().sum()).min()
                 lags = auto_lags(min_n)
                 add_dummies = kwargs.get("add_month_dummies", False)
-                summary = lag_regression_all_etfs(df, flow_col, return_col, lags, add_dummies)
+                summary = lag_regression_all_etfs(df, flow_col, return_col, lags,
+                                                     add_dummies, extra_controls)
                 if not summary.empty:
                     detail = summary
                     result["r2"] = _safe_float(summary["R²"].median())
@@ -157,6 +170,7 @@ def run_model(model_name: str, df: pd.DataFrame,
                     df, flow_col, return_col,
                     excess_return_col=exc,
                     lags=lags,
+                    extra_controls=extra_controls,
                     **kwargs,
                 )
                 if panel_result:
@@ -188,7 +202,8 @@ def run_model(model_name: str, df: pd.DataFrame,
                     })
 
             elif model_name == "asymmetry":
-                asym = asymmetry_all_etfs(df, flow_col, return_col)
+                asym = asymmetry_all_etfs(df, flow_col, return_col,
+                                              extra_controls)
                 if not asym.empty:
                     detail = asym
                     result["r2"] = _safe_float(asym["R²"].median())

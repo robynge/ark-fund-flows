@@ -59,9 +59,10 @@ def cross_correlation_all_etfs(df: pd.DataFrame, flow_col: str, return_col: str,
 
 
 def lag_regression(df: pd.DataFrame, flow_col: str, return_col: str,
-                   lags: list[int], add_month_dummies: bool = False) -> dict:
+                   lags: list[int], add_month_dummies: bool = False,
+                   extra_controls: list[str] | None = None) -> dict:
     """
-    OLS regression: flow(t) ~ return(t-lag1) + return(t-lag2) + ... [+ month_dummies]
+    OLS regression: flow(t) ~ return(t-lag1) + return(t-lag2) + ... [+ month_dummies] [+ controls]
 
     Returns dict with keys: coefficients, r_squared, adj_r_squared, f_pvalue, n_obs, summary_df
     """
@@ -78,6 +79,12 @@ def lag_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         months = pd.get_dummies(etf_df.index.month, prefix="month", drop_first=True, dtype=float)
         months.index = etf_df.index
         X = pd.concat([X, months], axis=1)
+
+    # Include noise-factor control variables
+    if extra_controls:
+        for col in extra_controls:
+            if col in etf_df.columns:
+                X[col] = etf_df[col]
 
     y = etf_df[flow_col]
 
@@ -115,12 +122,14 @@ def lag_regression(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def lag_regression_all_etfs(df: pd.DataFrame, flow_col: str, return_col: str,
                             lags: list[int],
-                            add_month_dummies: bool = False) -> pd.DataFrame:
+                            add_month_dummies: bool = False,
+                            extra_controls: list[str] | None = None) -> pd.DataFrame:
     """Run lag regression for all ETFs and return summary table."""
     rows = []
     for etf in df["ETF"].unique():
         etf_df = df[df["ETF"] == etf]
-        result = lag_regression(etf_df, flow_col, return_col, lags, add_month_dummies)
+        result = lag_regression(etf_df, flow_col, return_col, lags,
+                                add_month_dummies, extra_controls)
         if result is None:
             continue
         row = {"ETF": etf, "R²": result["r_squared"],
@@ -207,33 +216,45 @@ def seasonality_analysis(df: pd.DataFrame, flow_col: str) -> pd.DataFrame:
 
 
 def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
-                     lag_range: range) -> pd.DataFrame:
+                     lag_range: range,
+                     extra_controls: list[str] | None = None) -> pd.DataFrame:
     """
-    Compute R² from simple OLS (flow ~ return_lag_k) for each lag k.
+    Compute R² from simple OLS (flow ~ return_lag_k [+ controls]) for each lag k.
     Useful for finding optimal lag horizon.
     """
     etf_df = df.copy().set_index("Date").sort_index()
     results = []
 
+    # Pre-build control columns
+    ctrl_df = None
+    if extra_controls:
+        ctrl_cols = [c for c in extra_controls if c in etf_df.columns]
+        if ctrl_cols:
+            ctrl_df = etf_df[ctrl_cols]
+
     for lag in lag_range:
-        X = etf_df[return_col].shift(lag)
+        X = etf_df[[return_col]].shift(lag).rename(columns={return_col: "Return_lag"})
+        if ctrl_df is not None:
+            X = pd.concat([X, ctrl_df], axis=1)
         y = etf_df[flow_col]
         valid = pd.concat([y, X], axis=1).dropna()
         if len(valid) < 10:
             continue
 
         y_c = valid.iloc[:, 0]
-        X_c = sm.add_constant(valid.iloc[:, 1])
+        X_c = sm.add_constant(valid.iloc[:, 1:])
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             model = sm.OLS(y_c, X_c).fit()
 
+        # Extract coefficient/p-value for the return lag (first non-const variable)
+        lag_var_idx = 1  # index 0 is const
         results.append({
             "lag": lag,
             "r_squared": model.rsquared,
-            "coefficient": model.params.iloc[1],
-            "p_value": model.pvalues.iloc[1],
+            "coefficient": model.params.iloc[lag_var_idx],
+            "p_value": model.pvalues.iloc[lag_var_idx],
             "f_statistic": model.fvalue,
             "f_pvalue": model.f_pvalue,
         })
@@ -242,7 +263,8 @@ def r_squared_by_lag(df: pd.DataFrame, flow_col: str, return_col: str,
 
 
 def r_squared_by_lag_all_etfs(df: pd.DataFrame, flow_col: str,
-                               return_col: str) -> pd.DataFrame:
+                               return_col: str,
+                               extra_controls: list[str] | None = None) -> pd.DataFrame:
     """Compute R² by lag for every ETF. Returns long-form DataFrame
     with columns: ETF, lag, r_squared, coefficient, p_value.
     Lag range is auto-computed per ETF from data length."""
@@ -252,7 +274,8 @@ def r_squared_by_lag_all_etfs(df: pd.DataFrame, flow_col: str,
         n = len(etf_df[flow_col].dropna())
         max_lag = max(1, min(n // 2, 24))
         lag_range = range(1, max_lag + 1)
-        r2 = r_squared_by_lag(etf_df, flow_col, return_col, lag_range)
+        r2 = r_squared_by_lag(etf_df, flow_col, return_col, lag_range,
+                               extra_controls)
         if len(r2) > 0:
             r2["ETF"] = etf
             results.append(r2)
@@ -359,9 +382,10 @@ def relative_performance_all_etfs(df: pd.DataFrame, flow_col: str,
 # ============================================================
 
 def asymmetry_regression(df: pd.DataFrame, flow_col: str, return_col: str,
-                          lags: list[int]) -> dict | None:
+                          lags: list[int],
+                          extra_controls: list[str] | None = None) -> dict | None:
     """
-    Piecewise regression: Flow(t) = β₁·Return⁺(t-k) + β₂·Return⁻(t-k) + ε
+    Piecewise regression: Flow(t) = β₁·Return⁺(t-k) + β₂·Return⁻(t-k) [+ controls] + ε
 
     Return⁺ = max(Return, 0), Return⁻ = min(Return, 0)
     Wald test for H0: β₁ + β₂ = 0 (symmetric response)
@@ -376,6 +400,12 @@ def asymmetry_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         neg_lags[f"Return_neg_lag{k}"] = shifted.clip(upper=0)
 
     X = pd.DataFrame({**pos_lags, **neg_lags}, index=etf_df.index)
+
+    # Include noise-factor control variables
+    if extra_controls:
+        for col in extra_controls:
+            if col in etf_df.columns:
+                X[col] = etf_df[col]
     y = etf_df[flow_col]
 
     valid = pd.concat([y, X], axis=1).dropna()
@@ -434,7 +464,8 @@ def asymmetry_regression(df: pd.DataFrame, flow_col: str, return_col: str,
 
 
 def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str,
-                        return_col: str) -> pd.DataFrame:
+                        return_col: str,
+                        extra_controls: list[str] | None = None) -> pd.DataFrame:
     """Summary table: ETF, Beta_Pos, Beta_Neg, Asymmetry_Ratio, Wald_P, R², N.
     Lags are computed automatically per ETF based on data length."""
     rows = []
@@ -442,7 +473,8 @@ def asymmetry_all_etfs(df: pd.DataFrame, flow_col: str,
         etf_df = df[df["ETF"] == etf]
         n = len(etf_df[flow_col].dropna())
         lags = auto_lags(n)
-        result = asymmetry_regression(etf_df, flow_col, return_col, lags)
+        result = asymmetry_regression(etf_df, flow_col, return_col, lags,
+                                       extra_controls)
         if result is None:
             continue
         rows.append({
@@ -467,12 +499,18 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
                      entity_effects: bool = True,
                      time_effects: bool = False,
                      cluster_entity: bool = True,
-                     add_controls: bool = False) -> dict | None:
+                     add_controls: bool = False,
+                     extra_controls: list[str] | None = None) -> dict | None:
     """
     Panel regression using linearmodels PanelOLS.
 
     Entity (ETF) fixed effects, optional time fixed effects,
     clustered standard errors by entity, optional volatility control.
+
+    Parameters:
+        extra_controls: additional column names to include as control
+            variables (e.g. VIX_Close, month_end, Peer_Agg_Flow added
+            by noise factors C/D/E).
     """
     from linearmodels.panel import PanelOLS, PooledOLS
 
@@ -496,6 +534,12 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         x_cols += [f"Excess_lag{k}" for k in lags]
     if add_controls:
         x_cols.append("Volatility")
+
+    # Include noise-factor control variables (C: VIX, D: calendar, E: peer flow)
+    if extra_controls:
+        for col in extra_controls:
+            if col in pdf.columns:
+                x_cols.append(col)
 
     pdf = pdf.dropna(subset=[flow_col] + x_cols)
     if len(pdf) < len(x_cols) + 10:
