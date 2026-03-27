@@ -75,14 +75,15 @@ def _safe_float(val):
 
 def run_model(model_name: str, df: pd.DataFrame,
               flow_col: str, return_col: str,
-              freq: str) -> dict:
-    """Run a single model and return a summary dict.
+              freq: str) -> tuple[dict, pd.DataFrame | None]:
+    """Run a single model and return (summary_dict, detail_df).
 
-    Returns dict with keys: model, r2, beta_lag1, beta_lag1_p, f_stat, n_obs,
-    n_etfs, gate_pass, extra_json.
+    summary_dict: model, r2, beta_lag1, beta_lag1_p, f_stat, n_obs, n_etfs,
+                  gate_pass, extra_json.
+    detail_df: model-specific detailed results (coefficients, per-ETF, etc.)
     """
     model_spec = MODELS[model_name]
-    kwargs = model_spec.get("kwargs", {})
+    kwargs = dict(model_spec.get("kwargs", {}))  # copy to avoid mutation
     excess_col = "Excess_Return" if "Excess_Return" in df.columns else None
 
     result = {
@@ -96,6 +97,7 @@ def run_model(model_name: str, df: pd.DataFrame,
         "gate_pass": False,
         "extra_json": "{}",
     }
+    detail = None
 
     try:
         with warnings.catch_warnings():
@@ -104,7 +106,7 @@ def run_model(model_name: str, df: pd.DataFrame,
             if model_name == "univariate_r2_by_lag":
                 r2_df = r_squared_by_lag_all_etfs(df, flow_col, return_col)
                 if not r2_df.empty:
-                    # Summarize: median R² at lag 1, best lag
+                    detail = r2_df
                     lag1 = r2_df[r2_df["lag"] == 1]
                     result["r2"] = _safe_float(lag1["r_squared"].median())
                     result["beta_lag1"] = _safe_float(lag1["coefficient"].median())
@@ -122,6 +124,7 @@ def run_model(model_name: str, df: pd.DataFrame,
                 add_dummies = kwargs.get("add_month_dummies", False)
                 summary = lag_regression_all_etfs(df, flow_col, return_col, lags, add_dummies)
                 if not summary.empty:
+                    detail = summary
                     result["r2"] = _safe_float(summary["R²"].median())
                     result["beta_lag1"] = _safe_float(summary.get("Return_lag1", pd.Series([np.nan])).median())
                     result["beta_lag1_p"] = _safe_float(summary.get("Return_lag1_pval", pd.Series([np.nan])).median())
@@ -132,13 +135,12 @@ def run_model(model_name: str, df: pd.DataFrame,
             elif model_name == "cross_correlation":
                 cc = cross_correlation_all_etfs(df, flow_col, return_col, max_lag=20)
                 if not cc.empty:
-                    # Report median correlation at positive lags (past return → current flow)
+                    detail = cc
                     pos_lags = cc[cc["lag"] > 0]
                     lag1 = pos_lags[pos_lags["lag"] == 1]
                     result["beta_lag1"] = _safe_float(lag1["correlation"].median())
                     result["beta_lag1_p"] = _safe_float(lag1["p_value"].median())
                     result["n_etfs"] = cc["ETF"].nunique()
-                    # Best positive lag
                     median_by_lag = pos_lags.groupby("lag")["correlation"].median()
                     if len(median_by_lag) > 0:
                         result["extra_json"] = json.dumps({
@@ -158,8 +160,21 @@ def run_model(model_name: str, df: pd.DataFrame,
                     **kwargs,
                 )
                 if panel_result:
-                    result["r2"] = _safe_float(panel_result["r_squared_within"])
                     coefs = panel_result["coefficients"]
+                    # Build detail: coefficient table + summary row
+                    summary_row = pd.DataFrame([{
+                        "Variable": "_SUMMARY_",
+                        "r2_within": panel_result["r_squared_within"],
+                        "r2_between": panel_result.get("r_squared_between", np.nan),
+                        "r2_overall": panel_result.get("r_squared_overall", np.nan),
+                        "f_statistic": panel_result.get("f_statistic", np.nan),
+                        "f_pvalue": panel_result.get("f_pvalue", np.nan),
+                        "n_obs": panel_result["n_obs"],
+                        "n_entities": panel_result["n_entities"],
+                    }])
+                    detail = pd.concat([coefs, summary_row], ignore_index=True)
+
+                    result["r2"] = _safe_float(panel_result["r_squared_within"])
                     lag1_row = coefs[coefs["Variable"] == "Return_lag1"]
                     if not lag1_row.empty:
                         result["beta_lag1"] = _safe_float(lag1_row["Coefficient"].iloc[0])
@@ -175,6 +190,7 @@ def run_model(model_name: str, df: pd.DataFrame,
             elif model_name == "asymmetry":
                 asym = asymmetry_all_etfs(df, flow_col, return_col)
                 if not asym.empty:
+                    detail = asym
                     result["r2"] = _safe_float(asym["R²"].median())
                     result["beta_lag1"] = _safe_float(asym["Beta_Pos"].median())
                     result["n_obs"] = int(asym["N"].sum())
@@ -190,6 +206,7 @@ def run_model(model_name: str, df: pd.DataFrame,
                 if excess_col and df[excess_col].notna().any():
                     rp = relative_performance_all_etfs(df, flow_col, return_col, excess_col)
                     if not rp.empty:
+                        detail = rp
                         result["r2"] = _safe_float(rp["R²_Combined"].median())
                         result["n_obs"] = int(rp["N"].sum())
                         result["n_etfs"] = len(rp)
@@ -212,6 +229,7 @@ def run_model(model_name: str, df: pd.DataFrame,
                             granger_results.append(gc)
                 if granger_results:
                     gc_all = pd.concat(granger_results, ignore_index=True)
+                    detail = gc_all
                     ret_to_flow = gc_all[gc_all["direction"] == "Returns → Flows"]
                     if not ret_to_flow.empty:
                         lag1 = ret_to_flow[ret_to_flow["lag"] == 1]
@@ -227,6 +245,7 @@ def run_model(model_name: str, df: pd.DataFrame,
             elif model_name == "seasonality":
                 season = seasonality_analysis(df, flow_col)
                 if not season.empty:
+                    detail = season
                     result["n_obs"] = int(season["Count"].sum())
                     result["extra_json"] = json.dumps({
                         "jan_mean": _safe_float(season[season["Month"] == 1]["Mean"].iloc[0]),
@@ -241,6 +260,7 @@ def run_model(model_name: str, df: pd.DataFrame,
                     if not analysis.empty:
                         reg = drawdown_flow_regression(analysis)
                         if not reg.empty:
+                            detail = reg
                             result["n_obs"] = int(reg["N"].sum())
                             result["n_etfs"] = dd["ETF"].nunique()
                             row_1m = reg[reg["Horizon"] == "1m"]
@@ -267,46 +287,55 @@ def run_model(model_name: str, df: pd.DataFrame,
     if not np.isnan(b) and not np.isnan(p):
         result["gate_pass"] = bool(b > 0 and p < 0.05)
 
-    return result
+    return result, detail
 
 
 def run_experiment(experiment_id: str, factor_ids: list[str] | None,
                    df: pd.DataFrame, flow_col: str, return_col: str,
                    freq: str, flow_unit: str, benchmark: str,
-                   model_names: list[str]) -> list[dict]:
+                   model_names: list[str]) -> tuple[list[dict], dict[str, pd.DataFrame]]:
     """Run all specified models for one experiment (one factor combo).
 
-    Returns list of result dicts, one per model.
+    Returns:
+        summary_rows: list of summary dicts, one per model.
+        details: {model_name: detail_df} for models that produced detail.
     """
     # Apply noise factors
     if factor_ids:
         df = apply_factors(df, factor_ids, flow_col=flow_col)
 
     rows = []
+    details = {}
     for model_name in model_names:
         logger.info("  Running %s ...", model_name)
-        result = run_model(model_name, df, flow_col, return_col, freq)
+        result, detail = run_model(model_name, df, flow_col, return_col, freq)
         result["experiment_id"] = experiment_id
         result["factors"] = "+".join(factor_ids) if factor_ids else "(none)"
         result["freq"] = freq
         result["flow_unit"] = flow_unit
         result["benchmark"] = benchmark
         rows.append(result)
+        if detail is not None and not detail.empty:
+            details[model_name] = detail
 
-    return rows
+    return rows, details
+
+
+def _exp_dir(experiment_id: str) -> Path:
+    """Return the output directory for an experiment."""
+    if experiment_id == "baseline":
+        return RESULTS_DIR / "baseline"
+    return RESULTS_DIR / "noise" / experiment_id
 
 
 def run_grid(config: dict) -> pd.DataFrame:
     """Run the full experiment grid.
 
-    Parameters:
-        config: dict with keys: frequencies, flow_units, benchmarks,
-                zscore_type, models, include_baseline, factor_combos.
-
     Returns:
         DataFrame with one row per experiment × freq × flow_unit × benchmark × model.
     """
     all_rows = []
+    all_details: dict[str, dict[str, pd.DataFrame]] = {}  # {exp_id: {model: df}}
     total_experiments = 0
 
     for freq in config["frequencies"]:
@@ -332,23 +361,25 @@ def run_grid(config: dict) -> pd.DataFrame:
                 if config["include_baseline"]:
                     total_experiments += 1
                     logger.info("Running baseline [%s/%s/%s]", freq, flow_unit, benchmark)
-                    rows = run_experiment(
+                    rows, details = run_experiment(
                         "baseline", None, df,
                         flow_col, return_col, freq, flow_unit, benchmark,
                         config["models"],
                     )
                     all_rows.extend(rows)
+                    all_details["baseline"] = details
 
                 # Factor combinations
                 for exp_id, factor_ids in config["factor_combos"]:
                     total_experiments += 1
                     logger.info("Running %s [%s/%s/%s]", exp_id, freq, flow_unit, benchmark)
-                    rows = run_experiment(
+                    rows, details = run_experiment(
                         exp_id, factor_ids, df,
                         flow_col, return_col, freq, flow_unit, benchmark,
                         config["models"],
                     )
                     all_rows.extend(rows)
+                    all_details[exp_id] = details
 
     logger.info("Completed %d experiments, %d total result rows",
                 total_experiments, len(all_rows))
@@ -363,6 +394,14 @@ def run_grid(config: dict) -> pd.DataFrame:
             lambda row: _compute_r2_delta(row, baseline_r2), axis=1)
     else:
         results["r2_delta_bp"] = np.nan
+
+    # Save detail CSVs
+    for exp_id, details in all_details.items():
+        exp_dir = _exp_dir(exp_id)
+        exp_dir.mkdir(parents=True, exist_ok=True)
+        for model_name, detail_df in details.items():
+            detail_df.to_csv(exp_dir / f"{model_name}.csv", index=False)
+        logger.info("Saved %d detail CSVs to %s", len(details), exp_dir)
 
     return results
 
@@ -380,7 +419,7 @@ def _compute_r2_delta(row, baseline_r2: pd.Series) -> float:
 
 
 def save_results(results: pd.DataFrame, tag: str = ""):
-    """Save results to CSV files in experiments/results/."""
+    """Save summary results to CSV files in experiments/results/."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Master results table
@@ -389,15 +428,12 @@ def save_results(results: pd.DataFrame, tag: str = ""):
     results.to_csv(master_path, index=False)
     logger.info("Saved master results to %s (%d rows)", master_path, len(results))
 
-    # Per-experiment CSVs
+    # Per-experiment summary CSVs
     for exp_id in results["experiment_id"].unique():
         exp_df = results[results["experiment_id"] == exp_id]
-        if exp_id == "baseline":
-            exp_dir = RESULTS_DIR / "baseline"
-        else:
-            exp_dir = RESULTS_DIR / "noise" / exp_id
+        exp_dir = _exp_dir(exp_id)
         exp_dir.mkdir(parents=True, exist_ok=True)
-        exp_df.to_csv(exp_dir / "results.csv", index=False)
+        exp_df.to_csv(exp_dir / "summary.csv", index=False)
 
 
 def main():
@@ -467,9 +503,9 @@ def main():
         print("=" * 70)
         gate_pass = results[results["gate_pass"]]
         print(f"Total runs: {len(results)}")
-        print(f"Gate pass (β>0, p<0.05): {len(gate_pass)} / {len(results)}")
+        print(f"Gate pass (B>0, p<0.05): {len(gate_pass)} / {len(results)}")
         if not gate_pass.empty:
-            print("\nTop experiments by R²:")
+            print("\nTop experiments by R2:")
             top = gate_pass.nlargest(10, "r2")[
                 ["experiment_id", "freq", "flow_unit", "model", "r2", "beta_lag1", "beta_lag1_p"]
             ]
