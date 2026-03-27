@@ -6,3 +6,4 @@ numpy>=1.26.0
 scipy>=1.11.0
 statsmodels>=0.14.0
 linearmodels>=6.0
+rpy2
