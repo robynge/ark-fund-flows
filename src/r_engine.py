@@ -50,8 +50,17 @@ def _r_to_py(r_obj):
 
 def _prep_panel(df: pd.DataFrame, flow_col: str, return_col: str,
                 lags: list[int],
-                extra_controls: list[str] | None = None) -> pd.DataFrame:
-    """Prepare panel data: build lag columns, select relevant columns."""
+                extra_controls: list[str] | None = None,
+                cum_windows: list[int] | None = None) -> pd.DataFrame:
+    """Prepare panel data: build lag columns, cumulative return windows,
+    and select relevant columns.
+
+    Parameters:
+        cum_windows: rolling cumulative return windows (in periods).
+            E.g. [5, 20, 60] builds CumRet_5, CumRet_20, CumRet_60
+            where CumRet_W = rolling W-period cumulative return shifted by 1
+            (so it uses only past information, no look-ahead).
+    """
     pdf = df.copy()
 
     # Build lagged return columns
@@ -60,6 +69,14 @@ def _prep_panel(df: pd.DataFrame, flow_col: str, return_col: str,
 
     # Columns to keep
     keep = ["ETF", "Date", flow_col] + [f"Return_lag{k}" for k in lags]
+
+    # Build cumulative return windows (shifted by 1 to avoid look-ahead)
+    if cum_windows:
+        for w in cum_windows:
+            pdf[f"CumRet_{w}"] = pdf.groupby("ETF")[return_col].transform(
+                lambda x: x.rolling(w, min_periods=max(1, w // 2)).sum()
+            ).groupby(pdf["ETF"]).shift(1)
+            keep.append(f"CumRet_{w}")
 
     # Add extra control columns if present
     if extra_controls:
@@ -90,7 +107,8 @@ def panel_feols(df: pd.DataFrame, flow_col: str, return_col: str,
                 vcov: str = "cluster",
                 extra_controls: list[str] | None = None,
                 add_excess: bool = False,
-                add_volatility: bool = False) -> dict | None:
+                add_volatility: bool = False,
+                cum_windows: list[int] | None = None) -> dict | None:
     """Run panel regression using fixest::feols.
 
     Parameters:
@@ -99,6 +117,7 @@ def panel_feols(df: pd.DataFrame, flow_col: str, return_col: str,
         extra_controls: columns to include as additional regressors
         add_excess: include lagged excess return
         add_volatility: include rolling volatility control
+        cum_windows: rolling cumulative return windows (e.g. [5, 20, 60])
 
     Returns dict with: coefficients (DataFrame), r2_within, r2_overall,
     f_statistic, f_pvalue, n_obs, n_entities.
@@ -106,7 +125,8 @@ def panel_feols(df: pd.DataFrame, flow_col: str, return_col: str,
     if not R_AVAILABLE:
         return None
 
-    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls)
+    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls,
+                      cum_windows=cum_windows)
     if len(pdf) < 20:
         return None
 
@@ -120,6 +140,10 @@ def panel_feols(df: pd.DataFrame, flow_col: str, return_col: str,
     # Build formula
     lag_vars = [f"Return_lag{k}" for k in lags]
     rhs_vars = list(lag_vars)
+
+    # Add cumulative return windows
+    if cum_windows:
+        rhs_vars += [f"CumRet_{w}" for w in cum_windows if f"CumRet_{w}" in pdf.columns]
 
     if add_excess:
         excess_vars = [c for c in pdf.columns if c.startswith("Excess_lag")]
@@ -235,7 +259,8 @@ def panel_feols(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def panel_feols_comparison(df: pd.DataFrame, flow_col: str, return_col: str,
                            lags: list[int] = [1],
-                           extra_controls: list[str] | None = None) -> pd.DataFrame:
+                           extra_controls: list[str] | None = None,
+                           cum_windows: list[int] | None = None) -> pd.DataFrame:
     """Run multiple panel specifications side by side using fixest.
 
     Returns summary DataFrame comparing Pooled, Entity FE, Entity+Time FE,
@@ -257,7 +282,8 @@ def panel_feols_comparison(df: pd.DataFrame, flow_col: str, return_col: str,
     rows = []
     for name, kwargs in specs:
         result = panel_feols(df, flow_col, return_col, lags=lags,
-                             extra_controls=extra_controls, **kwargs)
+                             extra_controls=extra_controls,
+                             cum_windows=cum_windows, **kwargs)
         if result is None:
             continue
         row = {
@@ -284,7 +310,8 @@ def panel_feols_comparison(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def ols_by_etf(df: pd.DataFrame, flow_col: str, return_col: str,
                lags: list[int] = [1],
-               extra_controls: list[str] | None = None) -> pd.DataFrame:
+               extra_controls: list[str] | None = None,
+               cum_windows: list[int] | None = None) -> pd.DataFrame:
     """Run per-ETF OLS using fixest's split estimation.
 
     Equivalent to running lag_regression for each ETF, but done in one
@@ -295,16 +322,18 @@ def ols_by_etf(df: pd.DataFrame, flow_col: str, return_col: str,
     if not R_AVAILABLE:
         return pd.DataFrame()
 
-    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls)
+    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls,
+                      cum_windows=cum_windows)
     if len(pdf) < 20:
         return pd.DataFrame()
 
     lag_vars = [f"Return_lag{k}" for k in lags]
+    cum_vars = [f"CumRet_{w}" for w in (cum_windows or []) if f"CumRet_{w}" in pdf.columns]
     ctrl_vars = []
     if extra_controls:
         ctrl_vars = [col for col in extra_controls if col in pdf.columns]
 
-    rhs = " + ".join(lag_vars + ctrl_vars)
+    rhs = " + ".join(lag_vars + cum_vars + ctrl_vars)
 
     try:
         ro.globalenv["df_r"] = _py_to_r(pdf)
@@ -353,7 +382,8 @@ def ols_by_etf(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def asymmetry_feols(df: pd.DataFrame, flow_col: str, return_col: str,
                     lags: list[int] = [1],
-                    extra_controls: list[str] | None = None) -> dict | None:
+                    extra_controls: list[str] | None = None,
+                    cum_windows: list[int] | None = None) -> dict | None:
     """Asymmetry regression: Flow ~ Return_pos + Return_neg [+ controls] | ETF
 
     Returns dict with beta_pos, beta_neg, asymmetry_ratio, wald_p, r2, n_obs.
@@ -361,7 +391,8 @@ def asymmetry_feols(df: pd.DataFrame, flow_col: str, return_col: str,
     if not R_AVAILABLE:
         return None
 
-    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls)
+    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls,
+                      cum_windows=cum_windows)
     if len(pdf) < 20:
         return None
 
@@ -373,11 +404,12 @@ def asymmetry_feols(df: pd.DataFrame, flow_col: str, return_col: str,
 
     pos_vars = [f"Ret_pos_lag{k}" for k in lags]
     neg_vars = [f"Ret_neg_lag{k}" for k in lags]
+    cum_vars = [f"CumRet_{w}" for w in (cum_windows or []) if f"CumRet_{w}" in pdf.columns]
     ctrl_vars = []
     if extra_controls:
         ctrl_vars = [col for col in extra_controls if col in pdf.columns]
 
-    rhs = " + ".join(pos_vars + neg_vars + ctrl_vars)
+    rhs = " + ".join(pos_vars + neg_vars + cum_vars + ctrl_vars)
 
     try:
         pdf["DateInt"] = pd.factorize(pdf["Date"])[0]
@@ -449,7 +481,8 @@ def asymmetry_feols(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def diagnostic_tests(df: pd.DataFrame, flow_col: str, return_col: str,
                      lags: list[int] = [1],
-                     extra_controls: list[str] | None = None) -> dict:
+                     extra_controls: list[str] | None = None,
+                     cum_windows: list[int] | None = None) -> dict:
     """Run panel diagnostic tests.
 
     Returns dict with:
@@ -461,15 +494,17 @@ def diagnostic_tests(df: pd.DataFrame, flow_col: str, return_col: str,
     if not R_AVAILABLE:
         return {}
 
-    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls)
+    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls,
+                      cum_windows=cum_windows)
     if len(pdf) < 50:
         return {}
 
     lag_vars = [f"Return_lag{k}" for k in lags]
+    cum_vars = [f"CumRet_{w}" for w in (cum_windows or []) if f"CumRet_{w}" in pdf.columns]
     ctrl_vars = []
     if extra_controls:
         ctrl_vars = [col for col in extra_controls if col in pdf.columns]
-    rhs = " + ".join(lag_vars + ctrl_vars)
+    rhs = " + ".join(lag_vars + cum_vars + ctrl_vars)
 
     try:
         ro.globalenv["df_r"] = _py_to_r(pdf)
@@ -539,22 +574,25 @@ def diagnostic_tests(df: pd.DataFrame, flow_col: str, return_col: str,
 
 def multi_spec_summary(df: pd.DataFrame, flow_col: str, return_col: str,
                        lags: list[int] = [1],
-                       extra_controls: list[str] | None = None) -> str:
+                       extra_controls: list[str] | None = None,
+                       cum_windows: list[int] | None = None) -> str:
     """Run all key specifications and return a formatted summary string,
     similar to fixest::etable output.
     """
     if not R_AVAILABLE:
         return "R not available"
 
-    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls)
+    pdf = _prep_panel(df, flow_col, return_col, lags, extra_controls,
+                      cum_windows=cum_windows)
     if len(pdf) < 20:
         return "Not enough data"
 
     lag_vars = [f"Return_lag{k}" for k in lags]
+    cum_vars = [f"CumRet_{w}" for w in (cum_windows or []) if f"CumRet_{w}" in pdf.columns]
     ctrl_vars = []
     if extra_controls:
         ctrl_vars = [col for col in extra_controls if col in pdf.columns]
-    rhs = " + ".join(lag_vars + ctrl_vars)
+    rhs = " + ".join(lag_vars + cum_vars + ctrl_vars)
 
     try:
         pdf["DateInt"] = pd.factorize(pdf["Date"])[0]

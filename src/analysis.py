@@ -500,7 +500,8 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
                      time_effects: bool = False,
                      cluster_entity: bool = True,
                      add_controls: bool = False,
-                     extra_controls: list[str] | None = None) -> dict | None:
+                     extra_controls: list[str] | None = None,
+                     cum_windows: list[int] | None = None) -> dict | None:
     """
     Panel regression using linearmodels PanelOLS.
 
@@ -522,6 +523,13 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
         if excess_return_col and excess_return_col in pdf.columns:
             pdf[f"Excess_lag{k}"] = pdf.groupby("ETF")[excess_return_col].shift(k)
 
+    # Build cumulative return windows (shifted by 1 to avoid look-ahead)
+    if cum_windows:
+        for w in cum_windows:
+            pdf[f"CumRet_{w}"] = pdf.groupby("ETF")[return_col].transform(
+                lambda x, _w=w: x.rolling(_w, min_periods=max(1, _w // 2)).sum()
+            ).groupby(pdf["ETF"]).shift(1)
+
     # Optional: rolling volatility control
     if add_controls:
         pdf["Volatility"] = pdf.groupby("ETF")[return_col].transform(
@@ -530,6 +538,8 @@ def panel_regression(df: pd.DataFrame, flow_col: str, return_col: str,
 
     # Build X matrix
     x_cols = [f"Return_lag{k}" for k in lags]
+    if cum_windows:
+        x_cols += [f"CumRet_{w}" for w in cum_windows]
     if excess_return_col and excess_return_col in pdf.columns:
         x_cols += [f"Excess_lag{k}" for k in lags]
     if add_controls:

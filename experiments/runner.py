@@ -196,10 +196,16 @@ def run_model(model_name: str, df: pd.DataFrame,
                     result["f_stat"] = _safe_float(panel_result.get("f_statistic", np.nan))
                     result["n_obs"] = panel_result["n_obs"]
                     result["n_etfs"] = panel_result["n_entities"]
-                    result["extra_json"] = json.dumps({
+                    extra = {
                         "r2_overall": _safe_float(panel_result.get("r_squared_overall", np.nan)),
                         "r2_between": _safe_float(panel_result.get("r_squared_between", np.nan)),
-                    })
+                    }
+                    # Include CumRet coefficients if present
+                    for _, cr in coefs.iterrows():
+                        if str(cr["Variable"]).startswith("CumRet_"):
+                            extra[f"{cr['Variable']}_coef"] = _safe_float(cr["Coefficient"])
+                            extra[f"{cr['Variable']}_pval"] = _safe_float(cr["p_value"])
+                    result["extra_json"] = json.dumps(extra)
 
             elif model_name == "asymmetry":
                 asym = asymmetry_all_etfs(df, flow_col, return_col,

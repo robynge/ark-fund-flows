@@ -138,6 +138,28 @@ MODELS = {
         "function": "drawdown_flow_analysis",
         "scope": "per_etf",
     },
+    # --- Cumulative return models ---
+    "panel_entity_fe_cum": {
+        "description": "Entity FE with cumulative return windows (5, 20, 60)",
+        "function": "panel_regression",
+        "scope": "panel",
+        "kwargs": {"entity_effects": True, "time_effects": False,
+                   "cum_windows": [5, 20, 60]},
+    },
+    "panel_entity_fe_cum_long": {
+        "description": "Entity FE with longer cumulative windows (20, 60, 120)",
+        "function": "panel_regression",
+        "scope": "panel",
+        "kwargs": {"entity_effects": True, "time_effects": False,
+                   "cum_windows": [20, 60, 120]},
+    },
+    "panel_entity_time_fe_cum": {
+        "description": "Entity+Time FE with cumulative return windows",
+        "function": "panel_regression",
+        "scope": "panel",
+        "kwargs": {"entity_effects": True, "time_effects": True,
+                   "cum_windows": [5, 20, 60]},
+    },
 }
 
 # ============================================================
