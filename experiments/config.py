@@ -160,6 +160,29 @@ MODELS = {
         "kwargs": {"entity_effects": True, "time_effects": True,
                    "cum_windows": [5, 20, 60]},
     },
+    # --- GMM models ---
+    "panel_gmm_ab": {
+        "description": "Arellano-Bond GMM (first differences)",
+        "function": "panel_gmm",
+        "scope": "panel",
+        "kwargs": {"transformation": "d"},
+        "requires_r": True,
+    },
+    "panel_gmm_bb": {
+        "description": "Blundell-Bond System GMM (level + differences)",
+        "function": "panel_gmm",
+        "scope": "panel",
+        "kwargs": {"transformation": "ld"},
+        "requires_r": True,
+    },
+    # --- Interacted FE (ETF-specific time trends) ---
+    "panel_entity_fe_trend": {
+        "description": "Entity FE + ETF-specific linear time trends",
+        "function": "panel_feols_trend",
+        "scope": "panel",
+        "kwargs": {},
+        "requires_r": True,
+    },
 }
 
 # ============================================================

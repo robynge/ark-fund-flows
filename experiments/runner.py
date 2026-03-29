@@ -37,6 +37,20 @@ from analysis import (
 )
 from noise_factors import apply_factors  # noqa: E402 — src/ is on sys.path
 
+# Conditionally import r_engine for GMM / trend FE / bootstrap models
+try:
+    from r_engine import (
+        panel_gmm as _r_panel_gmm,
+        panel_feols_trend as _r_panel_feols_trend,
+        cluster_bootstrap as _r_cluster_bootstrap,
+        R_AVAILABLE as _R_AVAILABLE,
+    )
+except ImportError:
+    _r_panel_gmm = None
+    _r_panel_feols_trend = None
+    _r_cluster_bootstrap = None
+    _R_AVAILABLE = False
+
 from experiments.config import (
     MODELS, FLOW_UNITS, FACTOR_COMBOS,
     DEFAULT_CONFIG, FULL_CONFIG,
@@ -159,6 +173,73 @@ def run_model(model_name: str, df: pd.DataFrame,
                         result["extra_json"] = json.dumps({
                             "best_lag": int(median_by_lag.idxmax()),
                             "best_corr": _safe_float(median_by_lag.max()),
+                        })
+
+            elif model_name.startswith("panel_gmm_"):
+                if not _R_AVAILABLE or _r_panel_gmm is None:
+                    logger.info("Skipping %s: R not available", model_name)
+                else:
+                    transformation = kwargs.get("transformation", "d")
+                    min_n = df.groupby("ETF")[flow_col].apply(lambda x: x.notna().sum()).min()
+                    lags = auto_lags(min_n)
+                    gmm_result = _r_panel_gmm(
+                        df, flow_col, return_col, lags=lags,
+                        extra_controls=extra_controls,
+                        cum_windows=kwargs.get("cum_windows"),
+                        transformation=transformation,
+                    )
+                    if gmm_result:
+                        coefs = gmm_result["coefficients"]
+                        detail = coefs
+                        lag1_row = coefs[coefs["Variable"].str.contains("Return_lag1", na=False)]
+                        if not lag1_row.empty:
+                            result["beta_lag1"] = _safe_float(lag1_row["Coefficient"].iloc[0])
+                            result["beta_lag1_p"] = _safe_float(lag1_row["p_value"].iloc[0])
+                        result["n_obs"] = gmm_result["n_obs"]
+                        result["n_etfs"] = gmm_result["n_entities"]
+                        result["extra_json"] = json.dumps({
+                            "sargan_stat": _safe_float(gmm_result["sargan"]["statistic"]),
+                            "sargan_p": _safe_float(gmm_result["sargan"]["p_value"]),
+                            "ar1_stat": _safe_float(gmm_result["ar1"]["statistic"]),
+                            "ar1_p": _safe_float(gmm_result["ar1"]["p_value"]),
+                            "ar2_stat": _safe_float(gmm_result["ar2"]["statistic"]),
+                            "ar2_p": _safe_float(gmm_result["ar2"]["p_value"]),
+                            "transformation": transformation,
+                        })
+
+            elif model_name == "panel_entity_fe_trend":
+                if not _R_AVAILABLE or _r_panel_feols_trend is None:
+                    logger.info("Skipping %s: R not available", model_name)
+                else:
+                    min_n = df.groupby("ETF")[flow_col].apply(lambda x: x.notna().sum()).min()
+                    lags = auto_lags(min_n)
+                    trend_result = _r_panel_feols_trend(
+                        df, flow_col, return_col, lags=lags,
+                        extra_controls=extra_controls,
+                        cum_windows=kwargs.get("cum_windows"),
+                    )
+                    if trend_result:
+                        coefs = trend_result["coefficients"]
+                        summary_row = pd.DataFrame([{
+                            "Variable": "_SUMMARY_",
+                            "r2_within": trend_result["r_squared_within"],
+                            "r2_overall": trend_result.get("r_squared_overall", np.nan),
+                            "f_statistic": trend_result.get("f_statistic", np.nan),
+                            "f_pvalue": trend_result.get("f_pvalue", np.nan),
+                            "n_obs": trend_result["n_obs"],
+                            "n_entities": trend_result["n_entities"],
+                        }])
+                        detail = pd.concat([coefs, summary_row], ignore_index=True)
+                        result["r2"] = _safe_float(trend_result["r_squared_within"])
+                        lag1_row = coefs[coefs["Variable"] == "Return_lag1"]
+                        if not lag1_row.empty:
+                            result["beta_lag1"] = _safe_float(lag1_row["Coefficient"].iloc[0])
+                            result["beta_lag1_p"] = _safe_float(lag1_row["p_value"].iloc[0])
+                        result["f_stat"] = _safe_float(trend_result.get("f_statistic", np.nan))
+                        result["n_obs"] = trend_result["n_obs"]
+                        result["n_etfs"] = trend_result["n_entities"]
+                        result["extra_json"] = json.dumps({
+                            "r2_overall": _safe_float(trend_result.get("r_squared_overall", np.nan)),
                         })
 
             elif model_name.startswith("panel_"):

@@ -1,0 +1,140 @@
+======================================================================== 
+  ARK ETF Performance Chasing: Full Panel Analysis
+========================================================================
+
+Sample: N = 12155 , ETFs = 9 
+
+======================================================================== 
+  P0-1: BETWEEN/WITHIN VARIANCE DECOMPOSITION
+========================================================================
+
+  Fund_Flow        Overall SD:    68.5480  Between SD:     1.9370  Within SD:    68.5219  (Within%: 99.9%)
+  Return           Overall SD:     0.0230  Between SD:     0.0005  Within SD:     0.0230  (Within%: 100.0%)
+  Return_lag1      Overall SD:     0.0230  Between SD:     0.0004  Within SD:     0.0230  (Within%: 100.0%)
+  Flow_lag1        Overall SD:    68.5464  Between SD:     1.9360  Within SD:    68.5202  (Within%: 99.9%)
+
+======================================================================== 
+  P0-2: PANEL UNIT ROOT TESTS
+========================================================================
+
+  Variable: Fund_Flow 
+    Levin-Lin-Chu: FAILED - test = "levinlin" is not applicable to unbalanced panels 
+    Im-Pesaran-Shin: stat = -45.1763, p = 0.000000 [STATIONARY]
+
+Warning messages:
+1: In selectT(l, theTs) : the time series is long
+2: In selectT(l, theTs) : the time series is long
+3: In selectT(l, theTs) : the time series is long
+4: In selectT(l, theTs) : the time series is long
+5: In selectT(l, theTs) : the time series is long
+6: In selectT(l, theTs) : the time series is long
+7: In selectT(l, theTs) : the time series is long
+8: In selectT(l, theTs) : the time series is long
+9: In selectT(l, theTs) : the time series is long
+  Variable: Return 
+    Levin-Lin-Chu: FAILED - test = "levinlin" is not applicable to unbalanced panels 
+    Im-Pesaran-Shin: stat = -82.2530, p = 0.000000 [STATIONARY]
+
+Warning messages:
+1: In selectT(l, theTs) : the time series is long
+2: In selectT(l, theTs) : the time series is long
+3: In selectT(l, theTs) : the time series is long
+4: In selectT(l, theTs) : the time series is long
+5: In selectT(l, theTs) : the time series is long
+6: In selectT(l, theTs) : the time series is long
+7: In selectT(l, theTs) : the time series is long
+8: In selectT(l, theTs) : the time series is long
+9: In selectT(l, theTs) : the time series is long
+======================================================================== 
+  P0-3: PANEL DIAGNOSTIC TESTS
+========================================================================
+
+  (a) Hausman Test (FE vs RE):
+      chi2 = 0.2507, p = 0.616590
+      → Cannot reject RE
+
+  (b) Breusch-Pagan LM Test (Pooled vs Panel):
+      chi2 = 0.5610, p = 0.453874
+      → Pooled OLS ok
+
+  (c) F-test for Individual Effects:
+      F = 1.1773, p = 0.308352
+      → No individual effects
+
+  (d) Serial Correlation (Breusch-Godfrey/Wooldridge):
+      chi2 = 355.1791, p = 0.000000
+      → Serial correlation DETECTED
+
+  (e) Cross-Sectional Dependence (Pesaran CD):
+      CD = 26.6695, p = 0.000000
+      → CSD DETECTED: Need Driscoll-Kraay or two-way cluster SE
+
+  (f) Heteroskedasticity (Breusch-Pagan):
+      BP = 1.8780, p = 0.170556
+      → Homoskedastic
+
+  STANDARD ERROR RECOMMENDATION:
+  Based on diagnostics above:
+  - If (d) + (e) + (f) all significant → Driscoll-Kraay SE
+  - If (d) + (f) significant → Clustered SE by ETF
+  - 9 clusters < 30 → Wild cluster bootstrap recommended
+
+======================================================================== 
+  P0-4: BASELINE MODELS WITH MULTIPLE SE SPECIFICATIONS
+========================================================================
+
+NOTE: 0/13 fixed-effect singletons were removed (13 observations).
+                              m1              m2             m3              m4
+                          Pooled       Entity FE Entity+Time FE    2way Cluster
+Dependent Var.:        Fund_Flow       Fund_Flow      Fund_Flow       Fund_Flow
+                                                                               
+Constant         1.293* (0.6147)                                               
+Return_lag1     201.0*** (26.45) 201.3** (58.38) 256.5* (96.75)  201.3* (60.73)
+Fixed-Effects:  ---------------- --------------- --------------  --------------
+ETF                           No             Yes            Yes             Yes
+DateInt                       No              No            Yes              No
+_______________ ________________ _______________ ______________  ______________
+S.E. type       Heterosked.-rob.         by: ETF        by: ETF by: ETF & Date.
+R2                       0.00455         0.00532        0.20983         0.00532
+Within R2                     --         0.00456        0.00198         0.00456
+Observations              12,155          12,155         12,142          12,155
+
+                              m5
+                  Driscoll-Kraay
+Dependent Var.:        Fund_Flow
+                                
+Constant                        
+Return_lag1     201.3*** (34.95)
+Fixed-Effects:  ----------------
+ETF                          Yes
+DateInt                       No
+_______________ ________________
+S.E. type       Dris.-Kra. (L=7)
+R2                       0.00532
+Within R2                0.00456
+Observations              12,155
+---
+Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+
+======================================================================== 
+  P1-1: DYNAMIC PANEL MODEL (with Flow_lag1)
+========================================================================
+
+  Naive FE with lagged DV (Nickell-biased):
+                       m_dyn_naive
+Dependent Var.:          Fund_Flow
+                                  
+Return_lag1        133.4** (32.98)
+Flow_lag1       0.1705*** (0.0318)
+Fixed-Effects:  ------------------
+ETF                            Yes
+_______________ __________________
+S.E.: Clustered            by: ETF
+R2                         0.03383
+Within R2                  0.03310
+Observations                12,155
+---
+Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+  Arellano-Bond GMM:

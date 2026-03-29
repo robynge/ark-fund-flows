@@ -1,0 +1,37 @@
+
+\begingroup
+\centering
+\begin{tabular}{lcccccc}
+   \tabularnewline \midrule \midrule
+   Dependent Variable: & \multicolumn{6}{c}{Flow}\\
+                 & Pooled        & Entity FE     & + CumRet      & Dynamic        & DK SE         & Trend FE \\   
+   Model:        & (1)           & (2)           & (3)           & (4)            & (5)           & (6)\\  
+   \midrule
+   \emph{Variables}\\
+   Constant      & 16.84$^{***}$ &               &               &                &               &   \\   
+                 & (2.609)       &               &               &                &               &   \\   
+   Return\_lag1  & 309.7$^{***}$ & 299.5$^{***}$ & 233.6$^{***}$ & 95.68$^{**}$   & 233.6$^{**}$  & 226.3$^{***}$\\   
+                 & (75.58)       & (77.75)       & (63.04)       & (37.07)        & (114.9)       & (66.05)\\   
+   CumRet\_20    &               &               & 42.15$^{***}$ & 13.87$^{*}$    & 42.15$^{***}$ & 39.94$^{*}$\\   
+                 &               &               & (14.87)       & (6.897)        & (15.06)       & (20.78)\\   
+   CumRet\_60    &               &               & 63.06         & 20.78          & 63.06         & 83.77\\   
+                 &               &               & (46.08)       & (13.92)        & (46.73)       & (67.68)\\   
+   Flow\_lag1    &               &               &               & 0.5358$^{***}$ &               &   \\   
+                 &               &               &               & (0.0638)       &               &   \\   
+   \midrule
+   \emph{Fixed-effects}\\
+   ETF           &               & Yes           & Yes           & Yes            & Yes           & Yes\\  
+   \midrule
+   \emph{Varying Slopes}\\
+   DateInt (ETF) &               &               &               &                &               & Yes\\  
+   \midrule
+   \emph{Fit statistics}\\
+   R$^2$         & 0.01805       & 0.04801       & 0.07851       & 0.33662        & 0.07851       & 0.09287\\  
+   Within R$^2$  &               & 0.01730       & 0.04878       & 0.31522        & 0.04878       & 0.05059\\  
+   Observations  & 3,159         & 3,159         & 3,159         & 3,159          & 3,159         & 3,159\\  
+   \midrule \midrule
+   \multicolumn{7}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+\end{tabular}
+\par\endgroup
+
+

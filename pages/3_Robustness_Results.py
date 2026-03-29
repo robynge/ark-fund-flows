@@ -1,5 +1,6 @@
-"""Robustness Results — Specification curve, forest plot, and coefficient path
-for noise-factor experiments."""
+"""Robustness Results — Specification curve, forest plot, coefficient path,
+GMM comparison, bootstrap CI, and panel diagnostics."""
+import json
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -361,3 +362,238 @@ fig_hm.update_layout(
     margin=dict(l=120, t=80, r=20, b=20),
 )
 st.plotly_chart(fig_hm, use_container_width=True)
+
+
+# ==================================================================
+# 6. GMM COMPARISON
+# ==================================================================
+st.divider()
+st.subheader("6. GMM Model Comparison")
+st.caption(
+    "Arellano-Bond (AB) and Blundell-Bond (BB) GMM results vs standard FE. "
+    "GMM addresses Nickell bias from including lagged dependent variable."
+)
+
+gmm_models = ["panel_entity_fe", "panel_gmm_ab", "panel_gmm_bb", "panel_entity_fe_trend"]
+gmm_df = master[
+    (master["model"].isin(gmm_models)) & (master["experiment_id"] == "baseline")
+].copy()
+
+if not gmm_df.empty:
+    # Parse GMM diagnostics from extra_json
+    gmm_rows = []
+    for _, row in gmm_df.iterrows():
+        r = {
+            "Model": row["model"],
+            "Freq": row.get("freq", ""),
+            "beta_lag1": row["beta_lag1"],
+            "p_value": row["beta_lag1_p"],
+            "R2": row["r2"],
+            "N": row["n_obs"],
+        }
+        try:
+            extra = json.loads(row.get("extra_json", "{}"))
+            r["Sargan_p"] = extra.get("sargan_p", np.nan)
+            r["AR1_p"] = extra.get("ar1_p", np.nan)
+            r["AR2_p"] = extra.get("ar2_p", np.nan)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        gmm_rows.append(r)
+
+    gmm_table = pd.DataFrame(gmm_rows)
+
+    # Display table
+    st.dataframe(
+        gmm_table.style.format({
+            "beta_lag1": "{:.2f}",
+            "p_value": "{:.4f}",
+            "R2": "{:.4f}",
+            "Sargan_p": "{:.4f}",
+            "AR1_p": "{:.4f}",
+            "AR2_p": "{:.4f}",
+        }, na_rep="-"),
+        use_container_width=True,
+    )
+
+    # Bar chart comparing betas
+    fig_gmm = go.Figure()
+    for _, row in gmm_table.iterrows():
+        color = "#28a745" if pd.notna(row["p_value"]) and row["p_value"] < 0.05 else "#dc3545"
+        fig_gmm.add_trace(go.Bar(
+            x=[f"{row['Model']}\n({row['Freq']})"],
+            y=[row["beta_lag1"]],
+            marker_color=color,
+            text=f"p={row['p_value']:.3f}" if pd.notna(row["p_value"]) else "",
+            textposition="outside",
+            showlegend=False,
+        ))
+    fig_gmm.update_layout(
+        height=350, yaxis_title="beta(Return_lag1)",
+        margin=dict(l=60, r=30, t=30, b=80),
+    )
+    fig_gmm.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.3)
+    st.plotly_chart(fig_gmm, use_container_width=True)
+
+    st.markdown("""
+    **Interpretation:**
+    - **Sargan test** (p > 0.05): instruments are valid (overidentification not rejected)
+    - **AR(1)** (p < 0.05): expected — first-order serial correlation in differences
+    - **AR(2)** (p > 0.05): no second-order serial correlation — GMM assumptions hold
+    - With only 9 ETFs, GMM may be unstable; treat as supplementary evidence
+    """)
+else:
+    st.info("No GMM results available. Run experiments with panel_gmm_ab/bb models.")
+
+
+# ==================================================================
+# 7. BOOTSTRAP CI VISUALIZATION
+# ==================================================================
+st.divider()
+st.subheader("7. Cluster Bootstrap Confidence Intervals")
+st.caption(
+    "With only 9 clusters (ETFs), asymptotic cluster SE may be unreliable. "
+    "Pairs cluster bootstrap resamples entire ETFs to construct robust CIs."
+)
+
+# Check if bootstrap results exist in any detail CSV
+boot_results = []
+baseline_dir = RESULTS_DIR / "baseline"
+for csv_path in sorted(RESULTS_DIR.glob("**/panel_entity_fe.csv")):
+    try:
+        detail = pd.read_csv(csv_path)
+        if "_SUMMARY_" in detail.get("Variable", pd.Series()).values:
+            summary = detail[detail["Variable"] == "_SUMMARY_"].iloc[0]
+            boot_results.append(summary.to_dict())
+    except Exception:
+        pass
+
+# Show bootstrap info from r_engine if available
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+    from r_engine import R_AVAILABLE as _r_ok
+except ImportError:
+    _r_ok = False
+
+if _r_ok:
+    st.markdown(
+        "Bootstrap validation is available via `r_engine.cluster_bootstrap()`. "
+        "Run on your top specification to verify cluster SE."
+    )
+
+    if st.button("Run bootstrap on baseline Entity FE (ME/raw/SPY)"):
+        with st.spinner("Running 199 bootstrap replications..."):
+            try:
+                from r_engine import cluster_bootstrap
+                from data_loader import get_prepared_data_with_peers
+                df_boot = get_prepared_data_with_peers(freq="ME", zscore_type="full", benchmark="SPY")
+                boot = cluster_bootstrap(df_boot, "Flow_Sum", "Return_Cum", lags=[1], n_boot=199)
+                if boot:
+                    col_b1, col_b2, col_b3 = st.columns(3)
+                    col_b1.metric("Original beta", f"{boot['original_beta']:.2f}")
+                    col_b2.metric("Bootstrap SE", f"{boot['boot_se']:.2f}")
+                    col_b3.metric("Bootstrap p", f"{boot['boot_p']:.4f}")
+
+                    ci_lo, ci_hi = boot["ci_percentile"]
+                    st.markdown(f"**95% Percentile CI:** [{ci_lo:.2f}, {ci_hi:.2f}]")
+
+                    fig_boot = go.Figure()
+                    fig_boot.add_shape(type="rect", x0=ci_lo, x1=ci_hi, y0=0, y1=1,
+                                       fillcolor="lightblue", opacity=0.3, line_width=0)
+                    fig_boot.add_vline(x=boot["original_beta"], line_color="blue", line_width=2)
+                    fig_boot.add_vline(x=0, line_dash="dash", line_color="gray")
+                    fig_boot.update_layout(
+                        height=200, xaxis_title="beta(Return_lag1)",
+                        yaxis=dict(visible=False),
+                        margin=dict(l=60, r=30, t=20, b=40),
+                        annotations=[
+                            dict(x=boot["original_beta"], y=0.8, text="Point estimate",
+                                 showarrow=False, font=dict(size=11)),
+                            dict(x=(ci_lo + ci_hi) / 2, y=0.3, text="95% CI",
+                                 showarrow=False, font=dict(size=11, color="steelblue")),
+                        ]
+                    )
+                    st.plotly_chart(fig_boot, use_container_width=True)
+                else:
+                    st.warning("Bootstrap returned no results.")
+            except Exception as e:
+                st.error(f"Bootstrap failed: {e}")
+else:
+    st.info("R not available. Install rpy2 + R to enable bootstrap validation.")
+
+
+# ==================================================================
+# 8. PANEL DIAGNOSTICS SUMMARY
+# ==================================================================
+st.divider()
+st.subheader("8. Panel Diagnostics Summary")
+st.caption(
+    "Key diagnostic tests that guide standard error selection. "
+    "Run via `r_engine.diagnostic_tests()` on different frequencies."
+)
+
+if _r_ok:
+    if st.button("Run diagnostics (ME/raw/SPY)"):
+        with st.spinner("Running 6 panel diagnostic tests..."):
+            try:
+                from r_engine import diagnostic_tests, variance_decomposition
+                from data_loader import get_prepared_data_with_peers
+                df_diag = get_prepared_data_with_peers(freq="ME", zscore_type="full", benchmark="SPY")
+                diag = diagnostic_tests(df_diag, "Flow_Sum", "Return_Cum", lags=[1])
+
+                diag_rows = []
+                test_labels = {
+                    "hausman": ("Hausman (FE vs RE)", "p < 0.05 => Use FE"),
+                    "bp_lm_test": ("BP LM (Pooled vs Panel)", "p < 0.05 => Panel effects exist"),
+                    "f_test_individual_effects": ("F-test (individual effects)", "p < 0.05 => Individual effects"),
+                    "serial_correlation": ("Breusch-Godfrey (serial corr)", "p < 0.05 => Serial correlation"),
+                    "cross_sectional_dependence": ("Pesaran CD (cross-section dep)", "p < 0.05 => CSD exists"),
+                    "breusch_pagan": ("Breusch-Pagan (heterosked)", "p < 0.05 => Heteroskedastic"),
+                }
+                for key, (label, rule) in test_labels.items():
+                    if key in diag:
+                        stat = diag[key]["statistic"]
+                        pval = diag[key]["p_value"]
+                        sig = pval < 0.05 if pd.notna(pval) else None
+                        diag_rows.append({
+                            "Test": label,
+                            "Statistic": stat,
+                            "p-value": pval,
+                            "Significant": "Yes" if sig else ("No" if sig is not None else "-"),
+                            "Implication": rule,
+                        })
+
+                diag_table = pd.DataFrame(diag_rows)
+                st.dataframe(
+                    diag_table.style.format({"Statistic": "{:.4f}", "p-value": "{:.6f}"}, na_rep="-"),
+                    use_container_width=True,
+                )
+
+                # SE recommendation
+                sc = diag.get("serial_correlation", {}).get("p_value", 1)
+                csd = diag.get("cross_sectional_dependence", {}).get("p_value", 1)
+                het = diag.get("breusch_pagan", {}).get("p_value", 1)
+
+                if sc < 0.05 and csd < 0.05:
+                    st.success("Recommended SE: **Driscoll-Kraay** (serial correlation + CSD detected)")
+                elif sc < 0.05 and het < 0.05:
+                    st.warning("Recommended SE: **Clustered by ETF** (serial correlation + heteroskedasticity)")
+                else:
+                    st.info("Recommended SE: **Clustered by ETF** (default robust choice)")
+                st.markdown("*Note: With only 9 clusters, wild cluster bootstrap is recommended for verification.*")
+
+                # Variance decomposition
+                vd = variance_decomposition(df_diag, ["Flow_Sum", "Return_Cum"])
+                if not vd.empty:
+                    st.markdown("**Between/Within Variance Decomposition:**")
+                    st.dataframe(
+                        vd.style.format({
+                            "overall_sd": "{:.4f}", "between_sd": "{:.4f}",
+                            "within_sd": "{:.4f}", "within_pct": "{:.1f}%",
+                        }),
+                        use_container_width=True,
+                    )
+            except Exception as e:
+                st.error(f"Diagnostics failed: {e}")
+else:
+    st.info("R not available. Install rpy2 + R to enable panel diagnostics.")
