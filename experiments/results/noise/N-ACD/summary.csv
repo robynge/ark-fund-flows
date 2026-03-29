@@ -1,15 +1,241 @@
 model,r2,beta_lag1,beta_lag1_p,f_stat,n_obs,n_etfs,gate_pass,extra_json,experiment_id,factors,freq,flow_unit,benchmark,r2_delta_bp
-univariate_r2_by_lag,0.0936502280445759,0.51276388123078,0.24452244883977398,,44,44,False,"{""best_lag"": 1, ""best_r2"": 0.0936502280445759}",N-ACD,A+C+D,ME,raw,SPY,701.1757825707132
-multilag_ols,0.15892265859252153,156.70776501069116,0.13800879306019964,0.10693146507991613,3494,44,False,{},N-ACD,A+C+D,ME,raw,SPY,782.0441163099689
-multilag_ols_month_fe,0.2701340186993481,130.22098101094144,0.18470003136440488,0.23995490913620474,3494,44,False,{},N-ACD,A+C+D,ME,raw,SPY,810.327747374075
-cross_correlation,,0.14077720170742947,0.22543069631416623,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.14077720170742947}",N-ACD,A+C+D,ME,raw,SPY,
-panel_pooled,0.04957241985349026,317.5228863494279,0.0031384669673262255,30.21655922586707,3494,44,True,"{""r2_overall"": 0.04942327160146587, ""r2_between"": 0.021990541050777135}",N-ACD,A+C+D,ME,raw,SPY,144.7590148659439
-panel_entity_fe,0.04957494323074507,314.9050685677445,0.0032396550332001173,29.940306404775406,3494,44,True,"{""r2_overall"": 0.049420825879004204, ""r2_between"": 0.021860104696201144}",N-ACD,A+C+D,ME,raw,SPY,144.7767410948564
-panel_entity_time_fe,0.040185845441182755,298.30502540847226,0.01619975301124099,26.237011458673287,3494,44,True,"{""r2_overall"": 0.04021013855602251, ""r2_between"": 0.010526269754207451}",N-ACD,A+C+D,ME,raw,SPY,56.29466868588451
-panel_entity_fe_excess,0.054039853343034516,139.68677080026964,0.06757927397276475,21.841551501407192,3494,44,False,"{""r2_overall"": 0.05390306182481808, ""r2_between"": 0.02426744367529765}",N-ACD,A+C+D,ME,raw,SPY,117.1829238809885
-panel_entity_fe_controls,0.05016108545037157,320.1761404438796,0.0022806814765001793,25.975023547999363,3494,44,True,"{""r2_overall"": 0.04853271098386036, ""r2_between"": 0.022711359629863814}",N-ACD,A+C+D,ME,raw,SPY,141.08356978389747
-asymmetry,0.4952074957017439,88.40636353215216,,,3170,44,False,"{""beta_pos_median"": 88.40636353215216, ""beta_neg_median"": 100.03921047858371, ""asymmetry_ratio_median"": 0.5911606436281759, ""wald_p_median"": 0.051050636919179035}",N-ACD,A+C+D,ME,raw,SPY,1631.1290075226837
-relative_performance,0.412961231931474,,,,3170,44,False,"{""r2_absolute_median"": 0.2079703178542815, ""r2_excess_median"": 0.24972140301386148, ""r2_combined_median"": 0.412961231931474}",N-ACD,A+C+D,ME,raw,SPY,575.6778995050521
-granger,,,0.38702685659650093,0.7538359182964018,0,41,False,"{""pct_significant_lag1"": 0.07317073170731707}",N-ACD,A+C+D,ME,raw,SPY,
-seasonality,,,,,3626,44,False,"{""jan_mean"": 58.62651739130434, ""best_month"": 1, ""worst_month"": 8}",N-ACD,A+C+D,ME,raw,SPY,
-drawdown,0.004964979948216763,-0.22275489736596502,0.7860682369609197,,524,41,False,"{""1m"": {""beta_depth"": -0.22275489736596502, ""beta_depth_p"": 0.7860682369609197, ""r2"": 0.004964979948216763}, ""2m"": {""beta_depth"": -1.2519881020193604, ""beta_depth_p"": 0.1537019848138771, ""r2"": 0.023606854884341444}, ""3m"": {""beta_depth"": -1.2153676280656354, ""beta_depth_p"": 0.25520960473181525, ""r2"": 0.01576364126374341}, ""6m"": {""beta_depth"": 2.657967687025449, ""beta_depth_p"": 0.28210887611797125, ""r2"": 0.00863092911193597}}",N-ACD,A+C+D,ME,raw,SPY,-146.4697420402905
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+cross_correlation,,0.08800726300747982,0.06637470606129538,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.08800726300747982}",N-ACD,A+C+D,W,raw,SPY,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+relative_performance,0.1408753580101793,,,,14963,44,False,"{""r2_absolute_median"": 0.0835406270940009, ""r2_excess_median"": 0.1013004437639548, ""r2_combined_median"": 0.1408753580101793}",N-ACD,A+C+D,W,raw,SPY,223.20885387350998
+granger,,,0.09129948629257434,2.8743365322453562,0,44,False,"{""pct_significant_lag1"": 0.4090909090909091}",N-ACD,A+C+D,W,raw,SPY,
+seasonality,,,,,15491,44,False,"{""jan_mean"": 10.933463582089553, ""best_month"": 2, ""worst_month"": 5}",N-ACD,A+C+D,W,raw,SPY,
+drawdown,0.009824193728931507,0.0005914893772575591,0.9993995627760734,,852,44,False,"{""1m"": {""beta_depth"": 0.0005914893772575591, ""beta_depth_p"": 0.9993995627760734, ""r2"": 0.009824193728931507}, ""2m"": {""beta_depth"": 0.8038563400849865, ""beta_depth_p"": 0.7769890859555494, ""r2"": 0.00973213618788793}, ""3m"": {""beta_depth"": 2.0183810480275213, ""beta_depth_p"": 0.6938254185702881, ""r2"": 0.01028126559614917}, ""6m"": {""beta_depth"": 6.2648279066389865, ""beta_depth_p"": 0.44756984551772516, ""r2"": 0.01312354407677041}}",N-ACD,A+C+D,W,raw,SPY,-116.69168814543495
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,SPY,
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+cross_correlation,,0.09632956341098681,0.0734246309793936,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.09632956341098681}",N-ACD,A+C+D,W,pct_aum,SPY,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+relative_performance,0.1361788715067589,,,,14954,44,False,"{""r2_absolute_median"": 0.08018349527962754, ""r2_excess_median"": 0.07705687136114481, ""r2_combined_median"": 0.1361788715067589}",N-ACD,A+C+D,W,pct_aum,SPY,292.8409620953626
+granger,,,0.1606948991789368,1.9890317569499674,0,42,False,"{""pct_significant_lag1"": 0.35714285714285715}",N-ACD,A+C+D,W,pct_aum,SPY,
+seasonality,,,,,15446,44,False,"{""jan_mean"": NaN, ""best_month"": 1, ""worst_month"": 8}",N-ACD,A+C+D,W,pct_aum,SPY,
+drawdown,0.025595074160245312,0.05192042296799601,0.5036112401697569,,852,44,False,"{""1m"": {""beta_depth"": 0.05192042296799601, ""beta_depth_p"": 0.5036112401697569, ""r2"": 0.025595074160245312}, ""2m"": {""beta_depth"": -0.015348455108117248, ""beta_depth_p"": 0.9188300309381308, ""r2"": 0.026530315961686646}, ""3m"": {""beta_depth"": -0.025518511244230796, ""beta_depth_p"": 0.9087224518192432, ""r2"": 0.020343640161701426}, ""6m"": {""beta_depth"": 0.06648965983635684, ""beta_depth_p"": 0.8585343305404125, ""r2"": 0.0152679950205582}}",N-ACD,A+C+D,W,pct_aum,SPY,130.8079969986131
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,SPY,
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+cross_correlation,,0.08800726300747982,0.06637470606129538,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.08800726300747982}",N-ACD,A+C+D,W,raw,QQQ,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+relative_performance,0.20932474885546232,,,,14839,42,False,"{""r2_absolute_median"": 0.08186063930040754, ""r2_excess_median"": 0.12366812936918531, ""r2_combined_median"": 0.20932474885546232}",N-ACD,A+C+D,W,raw,QQQ,808.8939876159429
+granger,,,0.09129948629257434,2.8743365322453562,0,44,False,"{""pct_significant_lag1"": 0.4090909090909091}",N-ACD,A+C+D,W,raw,QQQ,
+seasonality,,,,,15491,44,False,"{""jan_mean"": 10.933463582089553, ""best_month"": 2, ""worst_month"": 5}",N-ACD,A+C+D,W,raw,QQQ,
+drawdown,0.009824193728931507,0.0005914893772575591,0.9993995627760734,,852,44,False,"{""1m"": {""beta_depth"": 0.0005914893772575591, ""beta_depth_p"": 0.9993995627760734, ""r2"": 0.009824193728931507}, ""2m"": {""beta_depth"": 0.8038563400849865, ""beta_depth_p"": 0.7769890859555494, ""r2"": 0.00973213618788793}, ""3m"": {""beta_depth"": 2.0183810480275213, ""beta_depth_p"": 0.6938254185702881, ""r2"": 0.01028126559614917}, ""6m"": {""beta_depth"": 6.2648279066389865, ""beta_depth_p"": 0.44756984551772516, ""r2"": 0.01312354407677041}}",N-ACD,A+C+D,W,raw,QQQ,-116.69168814543495
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,QQQ,
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+cross_correlation,,0.09632956341098681,0.0734246309793936,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.09632956341098681}",N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+relative_performance,0.24184762697045797,,,,14830,42,False,"{""r2_absolute_median"": 0.07826517913087366, ""r2_excess_median"": 0.13323390374980398, ""r2_combined_median"": 0.24184762697045797}",N-ACD,A+C+D,W,pct_aum,QQQ,575.1055519967585
+granger,,,0.1606948991789368,1.9890317569499674,0,42,False,"{""pct_significant_lag1"": 0.35714285714285715}",N-ACD,A+C+D,W,pct_aum,QQQ,
+seasonality,,,,,15446,44,False,"{""jan_mean"": NaN, ""best_month"": 1, ""worst_month"": 8}",N-ACD,A+C+D,W,pct_aum,QQQ,
+drawdown,0.025595074160245312,0.05192042296799601,0.5036112401697569,,852,44,False,"{""1m"": {""beta_depth"": 0.05192042296799601, ""beta_depth_p"": 0.5036112401697569, ""r2"": 0.025595074160245312}, ""2m"": {""beta_depth"": -0.015348455108117248, ""beta_depth_p"": 0.9188300309381308, ""r2"": 0.026530315961686646}, ""3m"": {""beta_depth"": -0.025518511244230796, ""beta_depth_p"": 0.9087224518192432, ""r2"": 0.020343640161701426}, ""6m"": {""beta_depth"": 0.06648965983635684, ""beta_depth_p"": 0.8585343305404125, ""r2"": 0.0152679950205582}}",N-ACD,A+C+D,W,pct_aum,QQQ,130.8079969986131
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,QQQ,
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+cross_correlation,,0.08800726300747982,0.06637470606129538,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.08800726300747982}",N-ACD,A+C+D,W,raw,peer_avg,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+relative_performance,0.14814993597209752,,,,14963,44,False,"{""r2_absolute_median"": 0.0835406270940009, ""r2_excess_median"": 0.06730537822577431, ""r2_combined_median"": 0.14814993597209752}",N-ACD,A+C+D,W,raw,peer_avg,254.79809848565293
+granger,,,0.09129948629257434,2.8743365322453562,0,44,False,"{""pct_significant_lag1"": 0.4090909090909091}",N-ACD,A+C+D,W,raw,peer_avg,
+seasonality,,,,,15491,44,False,"{""jan_mean"": 10.933463582089553, ""best_month"": 2, ""worst_month"": 5}",N-ACD,A+C+D,W,raw,peer_avg,
+drawdown,0.009824193728931507,0.0005914893772575591,0.9993995627760734,,852,44,False,"{""1m"": {""beta_depth"": 0.0005914893772575591, ""beta_depth_p"": 0.9993995627760734, ""r2"": 0.009824193728931507}, ""2m"": {""beta_depth"": 0.8038563400849865, ""beta_depth_p"": 0.7769890859555494, ""r2"": 0.00973213618788793}, ""3m"": {""beta_depth"": 2.0183810480275213, ""beta_depth_p"": 0.6938254185702881, ""r2"": 0.01028126559614917}, ""6m"": {""beta_depth"": 6.2648279066389865, ""beta_depth_p"": 0.44756984551772516, ""r2"": 0.01312354407677041}}",N-ACD,A+C+D,W,raw,peer_avg,-116.69168814543495
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,raw,peer_avg,
+univariate_r2_by_lag,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+multilag_ols,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+multilag_ols_month_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+cross_correlation,,0.09632956341098681,0.0734246309793936,,0,44,False,"{""best_lag"": 1, ""best_corr"": 0.09632956341098681}",N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_pooled,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_time_fe,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_fe_excess,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_fe_controls,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+asymmetry,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+relative_performance,0.13544566081564297,,,,14954,44,False,"{""r2_absolute_median"": 0.08018349527962754, ""r2_excess_median"": 0.049110219862804116, ""r2_combined_median"": 0.13544566081564297}",N-ACD,A+C+D,W,pct_aum,peer_avg,155.48901632049748
+granger,,,0.1606948991789368,1.9890317569499674,0,42,False,"{""pct_significant_lag1"": 0.35714285714285715}",N-ACD,A+C+D,W,pct_aum,peer_avg,
+seasonality,,,,,15446,44,False,"{""jan_mean"": NaN, ""best_month"": 1, ""worst_month"": 8}",N-ACD,A+C+D,W,pct_aum,peer_avg,
+drawdown,0.025595074160245312,0.05192042296799601,0.5036112401697569,,852,44,False,"{""1m"": {""beta_depth"": 0.05192042296799601, ""beta_depth_p"": 0.5036112401697569, ""r2"": 0.025595074160245312}, ""2m"": {""beta_depth"": -0.015348455108117248, ""beta_depth_p"": 0.9188300309381308, ""r2"": 0.026530315961686646}, ""3m"": {""beta_depth"": -0.025518511244230796, ""beta_depth_p"": 0.9087224518192432, ""r2"": 0.020343640161701426}, ""6m"": {""beta_depth"": 0.06648965983635684, ""beta_depth_p"": 0.8585343305404125, ""r2"": 0.0152679950205582}}",N-ACD,A+C+D,W,pct_aum,peer_avg,130.8079969986131
+panel_entity_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_time_fe_cum,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+panel_entity_fe_trend,,,,,0,44,False,{},N-ACD,A+C+D,W,pct_aum,peer_avg,
+univariate_r2_by_lag,0.15372839908835723,-0.5834353614154182,0.4072405870150583,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15372839908835723}",N-ACD,A+C+D,QE,raw,SPY,1050.4083717430324
+multilag_ols,0.15402659913001326,260.3478548678639,0.17220436064057104,0.2172034251481117,1163,42,False,{},N-ACD,A+C+D,QE,raw,SPY,1065.0071402310768
+multilag_ols_month_fe,0.2569366328090888,284.5005477576134,0.19870967029882203,0.32178824965786035,1163,42,False,{},N-ACD,A+C+D,QE,raw,SPY,1209.3618793735611
+cross_correlation,,0.28518064120873116,0.14632775386733937,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.28518064120873116}",N-ACD,A+C+D,QE,raw,SPY,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+asymmetry,0.5709622415817381,162.10836487544205,,,978,42,False,"{""beta_pos_median"": 162.10836487544205, ""beta_neg_median"": 44.10584181576469, ""asymmetry_ratio_median"": 0.3853885609508835, ""wald_p_median"": 0.47438441085413074}",N-ACD,A+C+D,QE,raw,SPY,-421.2164002701579
+relative_performance,0.5197344630495321,,,,978,42,False,"{""r2_absolute_median"": 0.29974901781376384, ""r2_excess_median"": 0.3074303313332345, ""r2_combined_median"": 0.5197344630495321}",N-ACD,A+C+D,QE,raw,SPY,-499.3162589562117
+granger,,,0.1495274337700266,2.2491039745180736,0,20,False,"{""pct_significant_lag1"": 0.35}",N-ACD,A+C+D,QE,raw,SPY,
+seasonality,,,,,1218,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,raw,SPY,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.7749052863606568, ""beta_depth_p"": 0.7446749038788204, ""r2"": 0.002666703751782018}, ""6m"": {""beta_depth"": -0.961182448276225, ""beta_depth_p"": 0.7730624213314776, ""r2"": 0.0012074462189805013}}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,SPY,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,SPY,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,SPY,
+panel_entity_fe_trend,0.05968009826588505,784.964676399276,0.0022665817415355276,34.367849868304376,1173,44,True,"{""r2_overall"": 0.15875254067351074}",N-ACD,A+C+D,QE,raw,SPY,112.98611857816887
+univariate_r2_by_lag,0.15015281212859388,-0.08978878102203307,0.22984769967290367,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15015281212859388}",N-ACD,A+C+D,QE,pct_aum,SPY,1195.5832908677012
+multilag_ols,0.14802266979625156,38.596810145381816,0.35060469860622634,0.19591394698248665,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,SPY,1178.358370060832
+multilag_ols_month_fe,0.2763129241153669,43.58789387102532,0.32024435960671394,0.2644401906421629,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,SPY,1561.2401948609916
+cross_correlation,,0.2088019517438806,0.32750156889236914,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.2088019517438806}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+asymmetry,0.585690335988325,8.1023868586825,,,978,42,False,"{""beta_pos_median"": 8.1023868586825, ""beta_neg_median"": 16.968454750733983, ""asymmetry_ratio_median"": 0.14316652558646967, ""wald_p_median"": 0.4447693668884825}",N-ACD,A+C+D,QE,pct_aum,SPY,301.36478198637076
+relative_performance,0.5076668721674058,,,,978,42,False,"{""r2_absolute_median"": 0.26612458033235337, ""r2_excess_median"": 0.26974872046497295, ""r2_combined_median"": 0.5076668721674058}",N-ACD,A+C+D,QE,pct_aum,SPY,88.12161616284564
+granger,,,0.3345370144744276,0.9590547360387307,0,20,False,"{""pct_significant_lag1"": 0.2}",N-ACD,A+C+D,QE,pct_aum,SPY,
+seasonality,,,,,1217,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.1966949716222149, ""beta_depth_p"": 0.3580646111657301, ""r2"": 0.03681016563273343}, ""6m"": {""beta_depth"": -0.5074440684647805, ""beta_depth_p"": 0.14515939771350858, ""r2"": 0.03875427124890374}}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,SPY,
+panel_entity_fe_trend,0.009231529484918344,-925.0899918756099,0.36675967359121614,5.045450440590259,1173,44,False,"{""r2_overall"": 0.6035993391658208}",N-ACD,A+C+D,QE,pct_aum,SPY,43.42896515423522
+univariate_r2_by_lag,0.15372839908835723,-0.5834353614154182,0.4072405870150583,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15372839908835723}",N-ACD,A+C+D,QE,raw,QQQ,1050.4083717430324
+multilag_ols,0.15402659913001326,260.3478548678639,0.17220436064057104,0.2172034251481117,1163,42,False,{},N-ACD,A+C+D,QE,raw,QQQ,1065.0071402310768
+multilag_ols_month_fe,0.2569366328090888,284.5005477576134,0.19870967029882203,0.32178824965786035,1163,42,False,{},N-ACD,A+C+D,QE,raw,QQQ,1209.3618793735611
+cross_correlation,,0.28518064120873116,0.14632775386733937,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.28518064120873116}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+asymmetry,0.5709622415817381,162.10836487544205,,,978,42,False,"{""beta_pos_median"": 162.10836487544205, ""beta_neg_median"": 44.10584181576469, ""asymmetry_ratio_median"": 0.3853885609508835, ""wald_p_median"": 0.47438441085413074}",N-ACD,A+C+D,QE,raw,QQQ,-421.2164002701579
+relative_performance,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,QQQ,
+granger,,,0.1495274337700266,2.2491039745180736,0,20,False,"{""pct_significant_lag1"": 0.35}",N-ACD,A+C+D,QE,raw,QQQ,
+seasonality,,,,,1218,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,raw,QQQ,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.7749052863606568, ""beta_depth_p"": 0.7446749038788204, ""r2"": 0.002666703751782018}, ""6m"": {""beta_depth"": -0.961182448276225, ""beta_depth_p"": 0.7730624213314776, ""r2"": 0.0012074462189805013}}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,QQQ,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,QQQ,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,QQQ,
+panel_entity_fe_trend,0.07542222383516206,1033.9028429859875,0.030128063445575805,15.132120717260506,457,44,True,"{""r2_overall"": 0.42208863356172877}",N-ACD,A+C+D,QE,raw,QQQ,189.1169821088412
+univariate_r2_by_lag,0.15015281212859388,-0.08978878102203307,0.22984769967290367,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15015281212859388}",N-ACD,A+C+D,QE,pct_aum,QQQ,1195.5832908677012
+multilag_ols,0.14802266979625156,38.596810145381816,0.35060469860622634,0.19591394698248665,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,1178.358370060832
+multilag_ols_month_fe,0.2763129241153669,43.58789387102532,0.32024435960671394,0.2644401906421629,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,1561.2401948609916
+cross_correlation,,0.2088019517438806,0.32750156889236914,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.2088019517438806}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+asymmetry,0.585690335988325,8.1023868586825,,,978,42,False,"{""beta_pos_median"": 8.1023868586825, ""beta_neg_median"": 16.968454750733983, ""asymmetry_ratio_median"": 0.14316652558646967, ""wald_p_median"": 0.4447693668884825}",N-ACD,A+C+D,QE,pct_aum,QQQ,301.36478198637076
+relative_performance,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,
+granger,,,0.3345370144744276,0.9590547360387307,0,20,False,"{""pct_significant_lag1"": 0.2}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+seasonality,,,,,1217,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.1966949716222149, ""beta_depth_p"": 0.3580646111657301, ""r2"": 0.03681016563273343}, ""6m"": {""beta_depth"": -0.5074440684647805, ""beta_depth_p"": 0.14515939771350858, ""r2"": 0.03875427124890374}}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,QQQ,
+panel_entity_fe_trend,0.02294365555087008,-5.445379970138168,0.9314179210020435,4.355990449134204,457,44,False,"{""r2_overall"": 0.4335769388012688}",N-ACD,A+C+D,QE,pct_aum,QQQ,131.34147806438511
+univariate_r2_by_lag,0.15372839908835723,-0.5834353614154182,0.4072405870150583,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15372839908835723}",N-ACD,A+C+D,QE,raw,peer_avg,1050.4083717430324
+multilag_ols,0.15402659913001326,260.3478548678639,0.17220436064057104,0.2172034251481117,1163,42,False,{},N-ACD,A+C+D,QE,raw,peer_avg,1065.0071402310768
+multilag_ols_month_fe,0.2569366328090888,284.5005477576134,0.19870967029882203,0.32178824965786035,1163,42,False,{},N-ACD,A+C+D,QE,raw,peer_avg,1209.3618793735611
+cross_correlation,,0.28518064120873116,0.14632775386733937,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.28518064120873116}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+asymmetry,0.5709622415817381,162.10836487544205,,,978,42,False,"{""beta_pos_median"": 162.10836487544205, ""beta_neg_median"": 44.10584181576469, ""asymmetry_ratio_median"": 0.3853885609508835, ""wald_p_median"": 0.47438441085413074}",N-ACD,A+C+D,QE,raw,peer_avg,-421.2164002701579
+relative_performance,0.5700933990471604,,,,978,42,False,"{""r2_absolute_median"": 0.29974901781376384, ""r2_excess_median"": 0.2578463711702837, ""r2_combined_median"": 0.5700933990471604}",N-ACD,A+C+D,QE,raw,peer_avg,214.18800488971823
+granger,,,0.1495274337700266,2.2491039745180736,0,20,False,"{""pct_significant_lag1"": 0.35}",N-ACD,A+C+D,QE,raw,peer_avg,
+seasonality,,,,,1218,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,raw,peer_avg,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.7749052863606568, ""beta_depth_p"": 0.7446749038788204, ""r2"": 0.002666703751782018}, ""6m"": {""beta_depth"": -0.961182448276225, ""beta_depth_p"": 0.7730624213314776, ""r2"": 0.0012074462189805013}}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,raw,peer_avg,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,peer_avg,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,raw,peer_avg,
+panel_entity_fe_trend,0.05968009826588505,784.964676399276,0.0022665817415355276,34.367849868304376,1173,44,True,"{""r2_overall"": 0.15875254067351074}",N-ACD,A+C+D,QE,raw,peer_avg,112.98611857816887
+univariate_r2_by_lag,0.15015281212859388,-0.08978878102203307,0.22984769967290367,,41,44,False,"{""best_lag"": 1, ""best_r2"": 0.15015281212859388}",N-ACD,A+C+D,QE,pct_aum,peer_avg,1195.5832908677012
+multilag_ols,0.14802266979625156,38.596810145381816,0.35060469860622634,0.19591394698248665,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,peer_avg,1178.358370060832
+multilag_ols_month_fe,0.2763129241153669,43.58789387102532,0.32024435960671394,0.2644401906421629,1163,42,False,{},N-ACD,A+C+D,QE,pct_aum,peer_avg,1561.2401948609916
+cross_correlation,,0.2088019517438806,0.32750156889236914,,0,41,False,"{""best_lag"": 1, ""best_corr"": 0.2088019517438806}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_pooled,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_time_fe,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe_excess,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe_controls,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+asymmetry,0.585690335988325,8.1023868586825,,,978,42,False,"{""beta_pos_median"": 8.1023868586825, ""beta_neg_median"": 16.968454750733983, ""asymmetry_ratio_median"": 0.14316652558646967, ""wald_p_median"": 0.4447693668884825}",N-ACD,A+C+D,QE,pct_aum,peer_avg,301.36478198637076
+relative_performance,0.5091741162903458,,,,978,42,False,"{""r2_absolute_median"": 0.26612458033235337, ""r2_excess_median"": 0.24543000170360285, ""r2_combined_median"": 0.5091741162903458}",N-ACD,A+C+D,QE,pct_aum,peer_avg,86.43170394883049
+granger,,,0.3345370144744276,0.9590547360387307,0,20,False,"{""pct_significant_lag1"": 0.2}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+seasonality,,,,,1217,44,False,"{""error"": ""single positional indexer is out-of-bounds""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+drawdown,,,,,124,31,False,"{""3m"": {""beta_depth"": -0.1966949716222149, ""beta_depth_p"": 0.3580646111657301, ""r2"": 0.03681016563273343}, ""6m"": {""beta_depth"": -0.5074440684647805, ""beta_depth_p"": 0.14515939771350858, ""r2"": 0.03875427124890374}}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe_cum_long,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_time_fe_cum,,,,,0,44,False,"{""error"": ""exog does not have full column rank. If you wish to proceed with model estimation irrespective of the numerical accuracy of coefficient estimates, you can set check_rank=False.""}",N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_gmm_ab,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_gmm_bb,,,,,0,44,False,{},N-ACD,A+C+D,QE,pct_aum,peer_avg,
+panel_entity_fe_trend,0.009231529484918344,-925.0899918756099,0.36675967359121614,5.045450440590259,1173,44,False,"{""r2_overall"": 0.6035993391658208}",N-ACD,A+C+D,QE,pct_aum,peer_avg,43.42896515423522
