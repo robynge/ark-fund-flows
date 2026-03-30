@@ -1,195 +1,121 @@
-"""ETF Performance Chasing — Research Overview
+"""Do ETF Investors Chase Past Performance?
 
-Home page: research question, methodology, theoretical framework, and key formulas.
+Home page: research question, S&T framework, our extensions, key findings.
 """
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-RESULTS_V2 = Path(__file__).parent / "experiments" / "results_v2"
-GRID_DIR = RESULTS_V2 / "grid_search"
+RESULTS = Path(__file__).parent / "experiments" / "results_v2"
 
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.title("Do ETF Investors Chase Past Performance?")
 
 st.markdown("""
-This study examines whether ETF investors exhibit **performance chasing behavior**
---- the tendency to allocate capital toward funds with strong recent returns.
-We follow the theoretical framework of **Sirri & Tufano (1998)** and extend it
-to the ETF market with high-frequency data and modern econometric methods.
+Sirri & Tufano (1998) established that mutual fund investors **chase top performers**
+while failing to flee poor performers — a pattern driven by costly search.
+We ask: **does this extend to ETFs?** With daily data and modern econometric
+methods, we not only replicate the S&T finding but reveal the **dynamics** of
+how performance chasing unfolds over time.
 """)
 
 # ============================================================
 # Theoretical Framework
 # ============================================================
-st.header("Theoretical Framework")
+st.header("Theoretical Framework: Sirri & Tufano (1998)")
 
 st.markdown(r"""
-### Sirri & Tufano (1998): Costly Search and Mutual Fund Flows
+**Core hypothesis**: Investors use past performance as a low-cost search signal.
+Because gathering information is costly, top performers attract disproportionate
+inflows, while poor performers do *not* experience proportionate outflows.
 
-The seminal Sirri & Tufano (1998) paper establishes that **investors disproportionately
-chase top-performing funds**, while poorly performing funds do not experience
-proportionate outflows. This asymmetry arises from costly search: investors use
-past performance as a low-cost signal to identify funds.
-
-Their core empirical model estimates the **piecewise linear relationship** between
-performance rank and fund flows:
+The S&T piecewise linear specification:
 
 $$
 \text{Flow}_{i,t} = \alpha + \beta_{\text{LOW}} \cdot \text{LOWPERF}_{i,t-1}
 + \beta_{\text{MID}} \cdot \text{MIDPERF}_{i,t-1}
 + \beta_{\text{HIGH}} \cdot \text{HIGHPERF}_{i,t-1}
-+ \gamma \cdot X_{i,t-1} + \varepsilon_{i,t}
++ \gamma' X_{i,t-1} + \varepsilon_{i,t}
 $$
 
-where:
-- $\text{LOWPERF}$, $\text{MIDPERF}$, $\text{HIGHPERF}$ = fractional performance
-  rank in bottom 20%, middle 60%, top 20%
-- $X_{i,t-1}$ = controls (fund size, category flows, risk, fees)
-- **Key prediction**: $\beta_{\text{HIGH}} \gg \beta_{\text{MID}} \approx \beta_{\text{LOW}}$
-  (convex flow-performance relationship)
+**Key prediction**: $\beta_{\text{HIGH}} \gg \beta_{\text{MID}} \approx \beta_{\text{LOW}}$
+— a **convex** flow-performance relationship.
 """)
 
 # ============================================================
-# Our Approach
+# Our Extension
 # ============================================================
-st.header("Our Approach")
+st.header("What We Add")
 
 st.markdown(r"""
-We adapt the Sirri & Tufano framework to ETFs with three key extensions:
+S&T used **annual** mutual fund data — they showed *that* investors chase, but
+couldn't show *how* the effect unfolds over time. Our **daily** ETF data enables
+three extensions:
 
-### 1. Main Panel Specification (Daily)
+| Extension | Method | What It Reveals |
+|-----------|--------|-----------------|
+| **Cumulative return windows** | Panel FE with non-overlapping 1-5, 6-20, 21-60 day windows | Which time horizon drives chasing? |
+| **Local Projection impulse response** | Jordà (2005), horizon h = 0..40 days | How does the flow response build and decay? |
+| **Asymmetric & regime analysis** | Positive/negative shock decomposition; bull/bear split | Do investors chase gains more than they flee losses? Does it change in crises? |
 
-Our primary specification uses **non-overlapping cumulative return windows** as regressors,
-estimated with entity fixed effects and clustered standard errors:
+Our main panel specification:
 
 $$
-\text{Flow}_{i,t} = \alpha_i + \beta_1 \cdot \text{CumRet}_{i,[t-5,t-1]}
+\text{Flow}_{i,t} = \alpha_i
++ \beta_1 \cdot \text{CumRet}_{i,[t-5,t-1]}
 + \beta_2 \cdot \text{CumRet}_{i,[t-20,t-6]}
 + \beta_3 \cdot \text{CumRet}_{i,[t-60,t-21]}
 + \gamma' Z_{i,t} + \varepsilon_{i,t}
 $$
 
-where:
-- $\alpha_i$ = ETF fixed effect (captures fund-specific average flow)
-- $\text{CumRet}_{[a,b]}$ = cumulative return from day $t-b$ to $t-a$
-- $Z_{i,t}$ = controls: VIX, calendar dummies, peer aggregate flow, event dummies
-- Standard errors clustered by ETF
-
-### 2. Local Projection Impulse Response (Jorda, 2005)
-
-To trace the **dynamic response** of flows to a return shock:
-
-$$
-\text{Flow}_{i,t+h} = \alpha_i^h + \beta_h \cdot \text{Shock}_{i,t}
-+ \gamma_h' X_{i,t} + \varepsilon_{i,t+h}
-\quad \text{for } h = 0, 1, \ldots, 40
-$$
-
-The sequence $\{\hat\beta_h\}$ traces the impulse response function, showing
-how fund flows evolve over 40 trading days following a return shock.
-
-### 3. Systematic Noise Decomposition
-
-We hypothesize that confounders obscure the true signal. Five noise factors
-are toggled on/off in all $2^5 - 1 = 31$ combinations:
-
-| Factor | What it Controls | Method |
-|--------|-----------------|--------|
-| **A** | Macro events (COVID, Ukraine, Fed hikes) | Exclude event windows |
-| **B** | Market-wide flow trends | Subtract cross-sectional mean flow |
-| **C** | Volatility regime | Add VIX as control variable |
-| **D** | Calendar seasonality | Add month-end, quarter-end, January dummies |
-| **E** | Peer aggregate flow | Add leave-one-out peer flow mean |
+where $\alpha_i$ = ETF fixed effects, $Z$ = VIX, calendar dummies, peer flow, event dummies.
 """)
 
 # ============================================================
-# Data
+# Key Findings Preview
 # ============================================================
-st.header("Data")
+st.header("Key Findings")
 
-st.markdown("""
-| Item | Source | Coverage |
-|------|--------|----------|
-| 9 ARK ETFs (daily flows + OHLCV) | Bloomberg | 2014-10 to 2026-03 |
-| 29 Tech peer ETFs (daily flows + OHLCV) | Bloomberg | 2017+ (varies) |
-| Monthly AUM | Bloomberg | All ETFs |
-| SPY, QQQ benchmarks | Yahoo Finance | Full sample |
-| VIX index | CBOE via Yahoo | Full sample |
-
-**Fund Flow Definition** (Sirri & Tufano, 1998):
-
-$$
-\\text{Flow}_{i,t} = \\frac{\\text{TNA}_{i,t} - \\text{TNA}_{i,t-1} \\times (1 + R_{i,t})}{\\text{TNA}_{i,t-1}}
-$$
-
-For ETFs, we use Bloomberg's net creation/redemption flow (in millions USD)
-as a direct measure of investor-driven capital allocation.
-""")
-
-# ============================================================
-# Key Results Summary
-# ============================================================
-st.header("Key Results")
+t3_f = RESULTS / "table_3_main_panel.csv"
+econ_f = RESULTS / "economic_significance.csv"
 
 col1, col2, col3 = st.columns(3)
 
-# Load key results
-t3_f = RESULTS_V2 / "table_3_main_panel.csv"
-econ_f = RESULTS_V2 / "economic_significance.csv"
-
 if t3_f.exists():
     t3 = pd.read_csv(t3_f)
-    base_cumret620 = t3[(t3["spec"] == "(1) Base") & (t3["Variable"] == "CumRet_6_20")]
-    if not base_cumret620.empty:
-        beta = base_cumret620.iloc[0]["Coefficient"]
-        p = base_cumret620.iloc[0]["p_value"]
-        col1.metric(
-            "CumRet_6_20 coefficient",
-            f"${beta:.1f}M",
-            f"p = {p:.4f}",
-        )
-
-    base_cumret2160 = t3[(t3["spec"] == "(1) Base") & (t3["Variable"] == "CumRet_21_60")]
-    if not base_cumret2160.empty:
-        beta2 = base_cumret2160.iloc[0]["Coefficient"]
-        p2 = base_cumret2160.iloc[0]["p_value"]
-        col2.metric(
-            "CumRet_21_60 coefficient",
-            f"${beta2:.1f}M",
-            f"p = {p2:.4f}",
-        )
+    r = t3[(t3["spec"] == "(1) Base") & (t3["Variable"] == "CumRet_6_20")]
+    if not r.empty:
+        col1.metric("6-20 day return → flow", f"β = {r.iloc[0]['Coefficient']:.1f}***",
+                     f"p = {r.iloc[0]['p_value']:.4f}")
+    r2 = t3[(t3["spec"] == "(1) Base") & (t3["Variable"] == "CumRet_21_60")]
+    if not r2.empty:
+        col2.metric("21-60 day return → flow", f"β = {r2.iloc[0]['Coefficient']:.1f}***",
+                     f"p = {r2.iloc[0]['p_value']:.4f}")
 
 if econ_f.exists():
     econ = pd.read_csv(econ_f)
     if not econ.empty:
-        sd_effect = econ.iloc[0].get("CumRet_6_20_1sd_effect", None)
-        if sd_effect:
-            col3.metric(
-                "1-SD Return Shock (6-20d)",
-                f"${sd_effect:.1f}M flow response",
-            )
+        col3.metric("1-SD shock (6-20d)", f"${econ.iloc[0].get('CumRet_6_20_1sd_effect', 0):.1f}M flow")
 
 st.markdown("""
-**Summary**: Past returns significantly predict future fund flows. A 1-standard-deviation
-increase in 6-20 day cumulative returns is associated with approximately $2.6M in
-additional daily fund flows. The effect is robust to Driscoll-Kraay standard errors,
-alternative dependent variables (% of AUM), and leave-one-ETF-out tests. Placebo
-tests using future (lead) returns show no significant relationship, confirming
-the direction of causality.
+**Summary**: ETF investors chase past performance. The effect is concentrated in
+the **6-60 day** return horizon, robust to Driscoll-Kraay SE, placebo tests,
+and leave-one-ETF-out analysis. The 1-5 day window is *not* significant —
+investors react to sustained trends, not daily noise.
 """)
 
 # ============================================================
-# Navigation
+# Dashboard Navigation
 # ============================================================
 st.divider()
-st.subheader("Dashboard Pages")
 st.markdown("""
-| Page | Content |
-|------|---------|
-| **Data Overview** | Price & fund flow time series, summary statistics, S&T scatter plot |
-| **Main Results** | Sirri-Tufano regression, panel specifications, impulse response figures |
-| **Robustness** | Placebo tests, leave-one-out, Fama-MacBeth, Driscoll-Kraay SE, diagnostics |
-| **Interactive Analysis** | Deep-dive: per-ETF flow distributions, cross-correlations, asymmetry, seasonality |
-| **Drawdown Analysis** | Event study: do large price drops trigger capital flight? |
+### Dashboard Guide
+
+| Page | Question | Content |
+|------|----------|---------|
+| **The Data** | *What does the data look like?* | Price + fund flow chart, summary statistics, ARK vs peers |
+| **The Evidence** | *Do investors chase?* | S&T scatter, piecewise regression, panel specification, economic significance |
+| **The Dynamics** | *How do they chase?* | Impulse response, asymmetric response, bull/bear regimes, drawdown events |
+| **Robustness** | *Should we believe this?* | Placebo, leave-one-out, DK SE, Flow %AUM, heteroscedasticity diagnostics |
+| **Explorer** | *Let me see for myself* | Per-ETF interactive analysis: distributions, lag structure, correlations |
 """)
