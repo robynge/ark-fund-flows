@@ -7,7 +7,7 @@ import plotly.express as px
 import json
 from pathlib import Path
 
-RESULTS_DIR = Path(__file__).parent.parent / "experiments" / "results"
+RESULTS_DIR = Path(__file__).parent.parent / "experiments" / "results_v2" / "grid_search"
 
 st.set_page_config(page_title="Model Comparison", layout="wide")
 st.title("Model Comparison")

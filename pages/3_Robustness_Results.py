@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 from pathlib import Path
 from scipy.stats import norm
 
-RESULTS_DIR = Path(__file__).parent.parent / "experiments" / "results"
+RESULTS_DIR = Path(__file__).parent.parent / "experiments" / "results_v2" / "grid_search"
 
 st.set_page_config(page_title="Robustness Results", layout="wide")
 st.title("Robustness: Does Noise Removal Reveal the Signal?")

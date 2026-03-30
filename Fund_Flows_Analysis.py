@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-RESULTS_DIR = Path(__file__).parent / "experiments" / "results"
+RESULTS_DIR = Path(__file__).parent / "experiments" / "results_v2" / "grid_search"
 
 st.set_page_config(page_title="ETF Performance Chasing", layout="wide")
 st.title("Do ETF Investors Chase Past Performance?")

@@ -21,6 +21,15 @@ backup_v1/
 # Learning materials (local only)
 learning_materials/
 
+# Old grid-search results (migrated to results_v2/grid_search/)
+experiments/results/
+
+# Stata/R panel exports (local only)
+stata/panel_*.csv
+
+# Sirri-Tufano mapping (local working doc)
+sirri_tufano_mapping.md
+
 # Claude Code config (local only)
 .claude/
 CLAUDE.md

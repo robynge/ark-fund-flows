@@ -1,4 +1,6 @@
-"""Experiment grid definition.
+"""DEPRECATED: Used by runner.py (old grid-search). See new_runner.py instead.
+
+Experiment grid definition.
 
 Enumerates all factor combinations, frequencies, flow units, and model
 specifications. The runner iterates this grid and writes results to CSV.
