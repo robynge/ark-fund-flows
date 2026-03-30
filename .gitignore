@@ -20,3 +20,7 @@ backup_v1/
 
 # Learning materials (local only)
 learning_materials/
+
+# Claude Code config (local only)
+.claude/
+CLAUDE.md
