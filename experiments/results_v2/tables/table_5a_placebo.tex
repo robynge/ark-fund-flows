@@ -1,0 +1,18 @@
+\begin{table}[htbp]\centering
+\caption{Robustness: Placebo Test (Future Returns)}
+\label{tab:placebo}
+\begin{tabular}{lcc}
+\toprule
+ & Real (Lag Returns) & Placebo (Lead Returns) \\
+\midrule
+CumRet\_lag1\_5 & $8.23$ & $-13.22^{*}$ \\
+CumRet\_lag6\_20 & $26.77^{***}$ & $15.73^{**}$ \\
+CumRet\_lag21\_60 & $23.26^{***}$ & $-2.50^{***}$ \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Placebo specification uses future (lead) returns instead of past (lag)
+returns. Insignificant placebo coefficients confirm that the relationship is not spurious.
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}

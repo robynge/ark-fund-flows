@@ -1,0 +1,20 @@
+\begin{table}[htbp]\centering
+\caption{Sub-sample Analysis: Bull vs.\ Bear Market}
+\label{tab:subsample}
+\begin{tabular}{lcccc}
+\toprule
+ & Full Sample & Pre-COVID & Bull (2020--2021) & Bear (2022--2024) \\
+\midrule
+CumRet\_1\_5 & $13.89$ & $17.50^{*}$ & $165.64^{***}$ & $-71.24$ \\
+CumRet\_6\_20 & $27.92^{***}$ & $5.20^{***}$ & $63.27^{***}$ & $-8.17$ \\
+CumRet\_21\_60 & $19.68^{***}$ & $4.74^{*}$ & $62.94^{***}$ & $-9.91$ \\
+\midrule
+$R^2$ (within) & 0.0206 & 0.0731 & 0.1162 & 0.0147 \\
+Observations & 12,321 & 2,742 & 1,960 & 5,437 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Same specification as Table \ref{tab:main_panel} Column (5).
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}

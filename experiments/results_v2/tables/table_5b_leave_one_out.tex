@@ -1,0 +1,23 @@
+\begin{table}[htbp]\centering
+\caption{Robustness: Leave-One-ETF-Out}
+\label{tab:leaveoneout}
+\begin{tabular}{lccccc}
+\toprule
+ETF Excluded & CumRet\_1\_5 & CumRet\_6\_20 & CumRet\_21\_60 & $R^2$ & N \\
+\midrule
+ARKK & $52.00^{***}$ & $21.49^{*}$ & $16.79^{**}$ & 0.0206 & 9,921 \\
+ARKF & $-2.98$ & $28.85^{***}$ & $26.02^{***}$ & 0.0034 & 10,979 \\
+ARKG & $-22.45$ & $19.67^{**}$ & $19.45^{**}$ & 0.0020 & 9,916 \\
+ARKX & $7.87$ & $27.59^{***}$ & $24.52^{***}$ & 0.0036 & 11,521 \\
+ARKB & $8.86$ & $29.95^{***}$ & $23.97^{***}$ & 0.0037 & 12,222 \\
+ARKQ & $7.50$ & $27.28^{***}$ & $24.17^{***}$ & 0.0035 & 11,909 \\
+ARKW & $8.11$ & $28.27^{***}$ & $24.46^{***}$ & 0.0036 & 11,909 \\
+PRNT & $8.29$ & $27.28^{***}$ & $23.72^{***}$ & 0.0035 & 11,909 \\
+IZRL & $7.89$ & $28.70^{***}$ & $24.65^{***}$ & 0.0036 & 11,290 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Each row drops one ETF and re-estimates the full specification.
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}
