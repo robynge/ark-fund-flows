@@ -294,9 +294,228 @@ def table_5():
     print("Table 5 saved")
 
 
+# ============================================================
+# Table 2: Sirri-Tufano Piecewise Linear
+# ============================================================
+
+def table_2():
+    df = pd.read_csv(RESULTS / "table_2_sirri_tufano.csv")
+
+    specs = ["(1) Base", "(2) + VIX", "(3) + Calendar", "(4) + Peer"]
+    variables = df["Variable"].tolist()
+
+    # Separate coefficient rows from stats rows
+    stat_vars = {"R² within", "N", "ETFs"}
+    coef_mask = ~df["Variable"].isin(stat_vars)
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Sirri--Tufano Piecewise Linear Specification (Monthly)}",
+        r"\label{tab:sirri_tufano}",
+        r"\begin{tabular}{lcccc}",
+        r"\toprule",
+        r" & (1) Base & (2) + VIX & (3) + Calendar & (4) + Peer \\",
+        r"\midrule",
+    ]
+
+    for _, row in df[coef_mask].iterrows():
+        var = row["Variable"].replace("_", r"\_")
+        cells = []
+        for spec in specs:
+            coef_val = row.get(spec, "")
+            se_val = row.get(f"{spec}_se", "")
+            if pd.isna(coef_val) or coef_val == "":
+                cells.append("")
+            else:
+                cells.append(str(coef_val))
+            # SE on next line handled below
+        lines.append(f"{var} & " + " & ".join(cells) + r" \\")
+        # SE row
+        se_cells = []
+        for spec in specs:
+            se_val = row.get(f"{spec}_se", "")
+            if pd.isna(se_val) or se_val == "":
+                se_cells.append("")
+            else:
+                se_cells.append(str(se_val))
+        lines.append(" & " + " & ".join(se_cells) + r" \\[3pt]")
+
+    lines.append(r"\midrule")
+
+    for _, row in df[~coef_mask].iterrows():
+        var = row["Variable"].replace("²", "$^2$").replace("_", r"\_")
+        cells = []
+        for spec in specs:
+            val = row.get(spec, "")
+            if pd.isna(val) or val == "":
+                cells.append("")
+            else:
+                try:
+                    fval = float(val)
+                    if var.startswith("N") or var.startswith("ETF"):
+                        cells.append(f"{int(fval):,}")
+                    else:
+                        cells.append(f"{fval:.4f}")
+                except ValueError:
+                    cells.append(str(val))
+        lines.append(f"{var} & " + " & ".join(cells) + r" \\")
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: Monthly frequency, 44 ETFs (9 ARK + 35 peers).",
+        r"LOWPERF, MIDPERF, HIGHPERF are fractional performance ranks",
+        r"(bottom 20\%, middle 60\%, top 20\%) following Sirri \& Tufano (1998).",
+        r"Entity-clustered standard errors in parentheses.",
+        r"$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_2_sirri_tufano.tex").write_text(tex)
+    print("Table 2 saved")
+
+
+# ============================================================
+# Table 5c: Fama-MacBeth
+# ============================================================
+
+def table_5c():
+    df = pd.read_csv(RESULTS / "table_5c_fama_macbeth.csv")
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Robustness: Fama--MacBeth Cross-Sectional Regression}",
+        r"\label{tab:fama_macbeth}",
+        r"\begin{tabular}{lcccc}",
+        r"\toprule",
+        r"Variable & Coefficient & Std.\ Error & $t$-stat & $p$-value \\",
+        r"\midrule",
+    ]
+
+    for _, row in df.iterrows():
+        if pd.isna(row["Coefficient"]):
+            continue
+        var = row["Variable"].replace("_", r"\_")
+        coef = row["Coefficient"]
+        se = row["Std_Error"]
+        t = row["t_stat"]
+        p = row["p_value"]
+        lines.append(
+            f"{var} & ${coef:.2f}{_stars(p)}$ & $({se:.2f})$ & "
+            f"${t:.2f}$ & ${p:.3f}$ \\\\"
+        )
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: Fama--MacBeth (1973) procedure: cross-sectional regressions",
+        r"estimated each period, coefficients averaged over time. Standard errors",
+        r"account for time-series variation in cross-sectional estimates.",
+        r"$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_5c_fama_macbeth.tex").write_text(tex)
+    print("Table 5c saved")
+
+
+# ============================================================
+# Table 5d: Flow % AUM
+# ============================================================
+
+def table_5d():
+    df = pd.read_csv(RESULTS / "table_5d_flow_pct.csv")
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Robustness: Alternative Dependent Variable (Flow \% of AUM)}",
+        r"\label{tab:flow_pct}",
+        r"\begin{tabular}{lcccc}",
+        r"\toprule",
+        r"Variable & Coefficient & Std.\ Error & $t$-stat & $p$-value \\",
+        r"\midrule",
+    ]
+
+    for _, row in df.iterrows():
+        if pd.isna(row["Coefficient"]):
+            continue
+        var = row["Variable"].replace("_", r"\_")
+        coef = row["Coefficient"]
+        se = row["Std_Error"]
+        t = row["t_stat"]
+        p = row["p_value"]
+        lines.append(
+            f"{var} & ${coef:.4f}{_stars(p)}$ & $({se:.4f})$ & "
+            f"${t:.2f}$ & ${p:.4f}$ \\\\"
+        )
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: Same specification as Table \ref{tab:main_panel} Column (5)",
+        r"with dependent variable rescaled as fund flow divided by lagged AUM.",
+        r"$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_5d_flow_pct.tex").write_text(tex)
+    print("Table 5d saved")
+
+
+# ============================================================
+# Table: Economic Significance
+# ============================================================
+
+def table_econ():
+    df = pd.read_csv(RESULTS / "economic_significance.csv")
+    row = df.iloc[0]
+
+    cumret_vars = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Economic Significance of Return--Flow Relationship}",
+        r"\label{tab:econ_sig}",
+        r"\begin{tabular}{lccc}",
+        r"\toprule",
+        r"Return Window & 1-SD Shock (\$M) & Standardized $\beta$ & Mean AUM (\$M) \\",
+        r"\midrule",
+    ]
+
+    for var in cumret_vars:
+        label = var.replace("_", r"\_")
+        effect = row[f"{var}_1sd_effect"]
+        std_beta = row[f"{var}_std_beta"]
+        aum = row["mean_aum_millions"]
+        lines.append(f"{label} & ${effect:.2f}$ & ${std_beta:.4f}$ & ${aum:.0f}$ \\\\")
+
+    lines.append(r"\midrule")
+    lines.append(f"SD(Flow) & \\multicolumn{{3}}{{c}}{{\\${row['sd_flow']:.2f}M}} \\\\")
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: 1-SD Shock shows the fund flow response (in \$M) to a",
+        r"one-standard-deviation increase in cumulative returns over each window.",
+        r"Standardized $\beta$ is the coefficient scaled by $\sigma_x / \sigma_y$.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_econ_significance.tex").write_text(tex)
+    print("Economic significance table saved")
+
+
 if __name__ == "__main__":
     table_1()
+    table_2()
     table_3()
     table_4()
     table_5()
+    table_5c()
+    table_5d()
+    table_econ()
     print("All LaTeX tables generated.")

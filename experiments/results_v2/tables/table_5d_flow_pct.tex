@@ -1,0 +1,18 @@
+\begin{table}[htbp]\centering
+\caption{Robustness: Alternative Dependent Variable (Flow \% of AUM)}
+\label{tab:flow_pct}
+\begin{tabular}{lcccc}
+\toprule
+Variable & Coefficient & Std.\ Error & $t$-stat & $p$-value \\
+\midrule
+CumRet\_1\_5 & $2.2904^{**}$ & $(0.9509)$ & $2.41$ & $0.0160$ \\
+CumRet\_6\_20 & $0.9362^{***}$ & $(0.2462)$ & $3.80$ & $0.0001$ \\
+CumRet\_21\_60 & $0.8228^{***}$ & $(0.1960)$ & $4.20$ & $0.0000$ \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Same specification as Table \ref{tab:main_panel} Column (5)
+with dependent variable rescaled as fund flow divided by lagged AUM.
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}

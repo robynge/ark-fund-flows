@@ -377,6 +377,42 @@ def run_economic_significance(df: pd.DataFrame,
 
 
 # ============================================================
+# Figure ST1: Sirri-Tufano scatter data
+# ============================================================
+
+def run_figure_st1(df: pd.DataFrame) -> pd.DataFrame:
+    """Generate data for S&T-style performance rank vs flow scatter plot.
+
+    Returns DataFrame with columns: ETF, Date, RANK, Flow_Pct, Trailing_Vol.
+    """
+    logger.info("Running Figure ST1 (S&T scatter data)")
+
+    out = df.copy()
+
+    # Identify return and flow columns (names vary by frequency)
+    ret_col = "Return_Cum" if "Return_Cum" in out.columns else "Return"
+    flow_col = "Flow_Pct" if "Flow_Pct" in out.columns else "Fund_Flow"
+
+    # Compute fractional rank within each period
+    out["RANK"] = out.groupby("Date")[ret_col].rank(pct=True)
+
+    # Compute Flow as % of AUM if not already available
+    if flow_col != "Flow_Pct" and "AUM" in out.columns:
+        out["Flow_Pct_ST"] = out[flow_col] / out["AUM"].replace(0, np.nan) * 100
+    else:
+        out["Flow_Pct_ST"] = out[flow_col]
+
+    # Compute trailing 12-month volatility (std of monthly returns)
+    out["Trailing_Vol"] = out.groupby("ETF")[ret_col].transform(
+        lambda x: x.rolling(12, min_periods=6).std()
+    )
+
+    result = out[["ETF", "Date", "RANK", "Flow_Pct_ST", "Trailing_Vol"]].dropna()
+    result = result.rename(columns={"Flow_Pct_ST": "Flow_Pct"})
+    return result
+
+
+# ============================================================
 # Main orchestrator
 # ============================================================
 
@@ -471,6 +507,12 @@ def run_all(output_dir: str | None = None) -> dict:
     econ = run_economic_significance(df_daily, t3)
     all_results["economic_significance"] = econ
     pd.DataFrame([econ]).to_csv(out / "economic_significance.csv", index=False)
+
+    # Figure ST1: Sirri-Tufano scatter data
+    fst1 = run_figure_st1(df_monthly)
+    all_results["figure_st1"] = fst1
+    fst1.to_csv(out / "figure_st1_scatter.csv", index=False)
+    logger.info("Figure ST1 data saved")
 
     elapsed = time.time() - t0
     logger.info("All done in %.1fs. Results saved to %s", elapsed, out)

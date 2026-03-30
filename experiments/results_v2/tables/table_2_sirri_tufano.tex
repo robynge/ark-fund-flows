@@ -1,0 +1,37 @@
+\begin{table}[htbp]\centering
+\caption{Sirri--Tufano Piecewise Linear Specification (Monthly)}
+\label{tab:sirri_tufano}
+\begin{tabular}{lcccc}
+\toprule
+ & (1) Base & (2) + VIX & (3) + Calendar & (4) + Peer \\
+\midrule
+LOWPERF & 14.0590*** & 14.0544*** & 14.0835*** & 14.2814*** \\
+ & (5.2798) & (5.3178) & (5.2903) & (5.0783) \\[3pt]
+MIDPERF & 1.7571 & 1.7572 & 1.7551 & 1.8125 \\
+ & (1.2745) & (1.2759) & (1.2642) & (1.1469) \\[3pt]
+HIGHPERF & 18.2233*** & 18.2231*** & 18.2733*** & 18.7883*** \\
+ & (4.5143) & (4.5143) & (4.5247) & (3.9929) \\[3pt]
+VIX\_Close &  & -0.0030 & -0.0007 & -0.0234 \\
+ &  & (0.0494) & (0.0495) & (0.0485) \\[3pt]
+month\_end &  &  & -0.0000 & 0.0000 \\
+ &  &  & (0.0000) & (0.0000) \\[3pt]
+quarter\_end &  &  & -0.2303 & -0.2258 \\
+ &  &  & (0.2528) & (0.2553) \\[3pt]
+january &  &  & 1.2101** & 0.0319 \\
+ &  &  & (0.5410) & (0.4830) \\[3pt]
+Peer\_Agg\_Flow &  &  &  & 0.0544*** \\
+ &  &  &  & (0.0095) \\[3pt]
+\midrule
+R$^2$ within & 0.0238 & 0.0238 & 0.0253 & 0.0898 \\
+N & 4,452 & 4,452 & 4,452 & 4,452 \\
+ETFs & 44 & 44 & 44 & 44 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Monthly frequency, 44 ETFs (9 ARK + 35 peers).
+LOWPERF, MIDPERF, HIGHPERF are fractional performance ranks
+(bottom 20\%, middle 60\%, top 20\%) following Sirri \& Tufano (1998).
+Entity-clustered standard errors in parentheses.
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}

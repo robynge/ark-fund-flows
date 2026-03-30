@@ -144,8 +144,81 @@ def figure_3_subsample_lp():
     print(f"Figure 3 saved to {FIGURES}")
 
 
+def figure_st1_performance_flow():
+    """Sirri-Tufano Figure 1 equivalent: performance rank vs flow scatter."""
+    scatter_f = RESULTS / "figure_st1_scatter.csv"
+    if not scatter_f.exists():
+        print("Skipping Figure ST1: scatter data not found")
+        return
+
+    df = pd.read_csv(scatter_f)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # --- Panel A: Performance rank vs Flow % ---
+    ax = axes[0]
+
+    # Scatter (light)
+    ax.scatter(df["RANK"], df["Flow_Pct"], alpha=0.08, s=8,
+               color=PALETTE["blue_main"], rasterized=True)
+
+    # 20-bin averages (heavy line) -- signature S&T visualization
+    df["rank_bin"] = pd.cut(df["RANK"], bins=20, labels=False) + 1
+    bin_means = df.groupby("rank_bin").agg(
+        rank_mid=("RANK", "mean"),
+        flow_mean=("Flow_Pct", "mean"),
+    ).dropna()
+
+    ax.plot(bin_means["rank_mid"], bin_means["flow_mean"],
+            color=PALETTE["red_strong"], linewidth=2.5, marker="o",
+            markersize=5, zorder=5)
+
+    ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Performance Rank (fractional, 0-1)")
+    ax.set_ylabel("Fund Flow (% of AUM)")
+    ax.set_title("A. Performance Rank vs. Flow", fontsize=14,
+                 fontweight="bold")
+
+    # --- Panel B: Risk (trailing vol) vs Flow % ---
+    ax = axes[1]
+
+    vol_valid = df.dropna(subset=["Trailing_Vol"])
+    ax.scatter(vol_valid["Trailing_Vol"], vol_valid["Flow_Pct"],
+               alpha=0.08, s=8, color=PALETTE["blue_main"], rasterized=True)
+
+    # 20-bin averages
+    vol_valid = vol_valid.copy()
+    vol_valid["vol_bin"] = pd.cut(vol_valid["Trailing_Vol"], bins=20,
+                                   labels=False) + 1
+    vol_means = vol_valid.groupby("vol_bin").agg(
+        vol_mid=("Trailing_Vol", "mean"),
+        flow_mean=("Flow_Pct", "mean"),
+    ).dropna()
+
+    ax.plot(vol_means["vol_mid"], vol_means["flow_mean"],
+            color=PALETTE["red_strong"], linewidth=2.5, marker="o",
+            markersize=5, zorder=5)
+
+    ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Trailing 12-Month Volatility")
+    ax.set_ylabel("Fund Flow (% of AUM)")
+    ax.set_title("B. Riskiness vs. Flow", fontsize=14, fontweight="bold")
+
+    fig.suptitle("Performance and Risk vs. Fund Flow Growth",
+                 fontsize=16, fontweight="bold", y=1.02)
+    fig.tight_layout()
+
+    for path in [FIGURES / "figure_st1_performance_flow.png",
+                 FIGURES / "figure_st1_performance_flow.pdf"]:
+        finalize_figure(fig, str(path), dpi=300, pad=2)
+
+    plt.close(fig)
+    print(f"Figure ST1 saved to {FIGURES}")
+
+
 if __name__ == "__main__":
     figure_1_impulse_response()
     figure_2_asymmetric()
     figure_3_subsample_lp()
+    figure_st1_performance_flow()
     print("All figures generated.")

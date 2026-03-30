@@ -1,0 +1,19 @@
+\begin{table}[htbp]\centering
+\caption{Robustness: Fama--MacBeth Cross-Sectional Regression}
+\label{tab:fama_macbeth}
+\begin{tabular}{lcccc}
+\toprule
+Variable & Coefficient & Std.\ Error & $t$-stat & $p$-value \\
+\midrule
+CumRet\_1\_5 & $21.76$ & $(90.54)$ & $0.24$ & $0.810$ \\
+CumRet\_6\_20 & $-88.56$ & $(63.74)$ & $-1.39$ & $0.165$ \\
+CumRet\_21\_60 & $2.61$ & $(73.08)$ & $0.04$ & $0.971$ \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Fama--MacBeth (1973) procedure: cross-sectional regressions
+estimated each period, coefficients averaged over time. Standard errors
+account for time-series variation in cross-sectional estimates.
+$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.
+\end{tablenotes}
+\end{table}
