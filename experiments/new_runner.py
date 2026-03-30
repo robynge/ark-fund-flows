@@ -43,6 +43,7 @@ from local_projection import (
 from placebo import (
     placebo_test, leave_one_etf_out,
     subsample_comparison, fama_macbeth,
+    breusch_pagan_test, white_test, driscoll_kraay_panel,
 )
 
 logger = logging.getLogger(__name__)
@@ -337,6 +338,36 @@ def run_table_5(df_daily: pd.DataFrame, df_weekly: pd.DataFrame = None,
 # Economic Significance
 # ============================================================
 
+def run_table_5e(df: pd.DataFrame) -> dict | None:
+    """Table 5e: Driscoll-Kraay standard errors for main specification."""
+    logger.info("Running Table 5e (Driscoll-Kraay SE)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+    return driscoll_kraay_panel(ark, "Fund_Flow", x_cols)
+
+
+def run_table_5f(df: pd.DataFrame) -> dict:
+    """Table 5f: Heteroscedasticity diagnostics for main specification."""
+    logger.info("Running Table 5f (heteroscedasticity tests)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+    bp = breusch_pagan_test(ark, "Fund_Flow", x_cols)
+    w = white_test(ark, "Fund_Flow", x_cols)
+
+    return {
+        "breusch_pagan": bp,
+        "white": w,
+    }
+
+
 def run_economic_significance(df: pd.DataFrame,
                                main_results: dict) -> dict:
     """Compute economic significance of main specification coefficients."""
@@ -502,6 +533,22 @@ def run_all(output_dir: str | None = None) -> dict:
         t5["flow_pct"]["coefficients"].to_csv(
             out / "table_5d_flow_pct.csv", index=False)
     logger.info("Table 5 saved")
+
+    # Table 5e: Driscoll-Kraay SE
+    t5e = run_table_5e(df_daily)
+    all_results["table_5e"] = t5e
+    if t5e:
+        t5e["coefficients"].to_csv(out / "table_5e_driscoll_kraay.csv", index=False)
+    logger.info("Table 5e saved")
+
+    # Table 5f: Heteroscedasticity tests
+    t5f = run_table_5f(df_daily)
+    all_results["table_5f"] = t5f
+    pd.DataFrame([
+        {"Test": "Breusch-Pagan", **t5f["breusch_pagan"]},
+        {"Test": "White", **t5f["white"]},
+    ]).to_csv(out / "table_5f_diagnostics.csv", index=False)
+    logger.info("Table 5f saved")
 
     # Economic significance
     econ = run_economic_significance(df_daily, t3)

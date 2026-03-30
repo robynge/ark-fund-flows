@@ -199,3 +199,99 @@ def fama_macbeth(df: pd.DataFrame, flow_col: str,
         "T": T,
         "n_etfs_per_period": pdf.groupby(date_col)["ETF"].nunique().median(),
     }
+
+
+# ============================================================
+# Heteroscedasticity tests
+# ============================================================
+
+def breusch_pagan_test(df: pd.DataFrame, y_col: str, x_cols: list[str],
+                       entity_col: str = "ETF") -> dict:
+    """Breusch-Pagan test for heteroscedasticity on entity-demeaned data."""
+    from statsmodels.stats.diagnostic import het_breuschpagan
+
+    keep = [entity_col, y_col] + x_cols
+    sub = df[keep].dropna()
+    if len(sub) < 30:
+        return {"statistic": np.nan, "p_value": np.nan}
+
+    y = sub[y_col] - sub.groupby(entity_col)[y_col].transform("mean")
+    X = sub[x_cols].copy()
+    for col in x_cols:
+        X[col] = X[col] - sub.groupby(entity_col)[col].transform("mean")
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    bp_stat, bp_p, _, _ = het_breuschpagan(model.resid, model.model.exog)
+
+    return {"statistic": bp_stat, "p_value": bp_p}
+
+
+def white_test(df: pd.DataFrame, y_col: str, x_cols: list[str],
+               entity_col: str = "ETF") -> dict:
+    """White's test for heteroscedasticity on entity-demeaned data."""
+    from statsmodels.stats.diagnostic import het_white
+
+    keep = [entity_col, y_col] + x_cols
+    sub = df[keep].dropna()
+    if len(sub) < 30:
+        return {"statistic": np.nan, "p_value": np.nan}
+
+    y = sub[y_col] - sub.groupby(entity_col)[y_col].transform("mean")
+    X = sub[x_cols].copy()
+    for col in x_cols:
+        X[col] = X[col] - sub.groupby(entity_col)[col].transform("mean")
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    w_stat, w_p, _, _ = het_white(model.resid, model.model.exog)
+
+    return {"statistic": w_stat, "p_value": w_p}
+
+
+# ============================================================
+# Driscoll-Kraay standard errors
+# ============================================================
+
+def driscoll_kraay_panel(df: pd.DataFrame, y_col: str, x_cols: list[str],
+                         entity_col: str = "ETF", date_col: str = "Date",
+                         maxlag: int | None = None) -> dict | None:
+    """Panel OLS with Driscoll-Kraay (1998) standard errors.
+
+    Uses linearmodels.PanelOLS with kernel covariance estimator.
+    """
+    from linearmodels.panel import PanelOLS
+
+    keep = [entity_col, date_col, y_col] + x_cols
+    sub = df[keep].dropna().copy()
+    if len(sub) < 30:
+        return None
+
+    sub = sub.set_index([entity_col, date_col])
+    y = sub[y_col]
+    X = sub[x_cols]
+
+    if maxlag is None:
+        T = y.reset_index()[date_col].nunique()
+        maxlag = int(T ** (1 / 3))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = PanelOLS(y, X, entity_effects=True).fit(
+            cov_type="kernel", kernel="bartlett", bandwidth=maxlag)
+
+    coef_df = pd.DataFrame({
+        "Variable": model.params.index,
+        "Coefficient": model.params.values,
+        "Std_Error": model.std_errors.values,
+        "t_stat": model.tstats.values,
+        "p_value": model.pvalues.values,
+    }).reset_index(drop=True)
+
+    return {
+        "coefficients": coef_df,
+        "r_squared_within": model.rsquared_within,
+        "n_obs": int(model.nobs),
+        "n_entities": model.entity_info.total,
+        "bandwidth": maxlag,
+    }

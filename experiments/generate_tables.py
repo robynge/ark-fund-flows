@@ -509,6 +509,98 @@ def table_econ():
     print("Economic significance table saved")
 
 
+# ============================================================
+# Table 5e: Driscoll-Kraay SE
+# ============================================================
+
+def table_5e():
+    f = RESULTS / "table_5e_driscoll_kraay.csv"
+    if not f.exists():
+        print("Skipping Table 5e: CSV not found")
+        return
+
+    df = pd.read_csv(f)
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Robustness: Driscoll--Kraay Standard Errors}",
+        r"\label{tab:driscoll_kraay}",
+        r"\begin{tabular}{lcccc}",
+        r"\toprule",
+        r"Variable & Coefficient & DK Std.\ Error & $t$-stat & $p$-value \\",
+        r"\midrule",
+    ]
+
+    for _, row in df.iterrows():
+        var = row["Variable"].replace("_", r"\_")
+        coef = row["Coefficient"]
+        se = row["Std_Error"]
+        t = row["t_stat"]
+        p = row["p_value"]
+        lines.append(
+            f"{var} & ${coef:.2f}{_stars(p)}$ & $({se:.2f})$ & "
+            f"${t:.2f}$ & ${p:.3f}$ \\\\"
+        )
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: Same specification as Table \ref{tab:main_panel} Column (1)",
+        r"with Driscoll--Kraay (1998) standard errors, which are robust to both",
+        r"cross-sectional and temporal dependence. Bartlett kernel with automatic",
+        r"bandwidth selection.",
+        r"$^{***}p<0.01$, $^{**}p<0.05$, $^{*}p<0.10$.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_5e_driscoll_kraay.tex").write_text(tex)
+    print("Table 5e saved")
+
+
+# ============================================================
+# Table 5f: Heteroscedasticity Diagnostics
+# ============================================================
+
+def table_5f():
+    f = RESULTS / "table_5f_diagnostics.csv"
+    if not f.exists():
+        print("Skipping Table 5f: CSV not found")
+        return
+
+    df = pd.read_csv(f)
+
+    lines = [
+        r"\begin{table}[htbp]\centering",
+        r"\caption{Diagnostic Tests: Heteroscedasticity}",
+        r"\label{tab:het_tests}",
+        r"\begin{tabular}{lcc}",
+        r"\toprule",
+        r"Test & Statistic & $p$-value \\",
+        r"\midrule",
+    ]
+
+    for _, row in df.iterrows():
+        name = row["Test"]
+        stat = row["statistic"]
+        p = row["p_value"]
+        sig = " ***" if p < 0.01 else " **" if p < 0.05 else " *" if p < 0.10 else ""
+        lines.append(f"{name} & ${stat:.2f}$ & ${p:.4f}{sig}$ \\\\")
+
+    lines += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\begin{tablenotes}\small",
+        r"\item Notes: Both tests applied to the entity-demeaned residuals from the",
+        r"main specification. Rejection ($p < 0.05$) indicates heteroscedasticity,",
+        r"justifying the use of clustered or Driscoll--Kraay standard errors.",
+        r"\end{tablenotes}", r"\end{table}",
+    ]
+
+    tex = "\n".join(lines)
+    (TABLES / "table_5f_diagnostics.tex").write_text(tex)
+    print("Table 5f saved")
+
+
 if __name__ == "__main__":
     table_1()
     table_2()
@@ -517,5 +609,7 @@ if __name__ == "__main__":
     table_5()
     table_5c()
     table_5d()
+    table_5e()
+    table_5f()
     table_econ()
     print("All LaTeX tables generated.")

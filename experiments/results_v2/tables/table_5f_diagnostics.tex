@@ -1,0 +1,17 @@
+\begin{table}[htbp]\centering
+\caption{Diagnostic Tests: Heteroscedasticity}
+\label{tab:het_tests}
+\begin{tabular}{lcc}
+\toprule
+Test & Statistic & $p$-value \\
+\midrule
+Breusch-Pagan & $19.34$ & $0.0002 ***$ \\
+White & $36.85$ & $0.0000 ***$ \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}\small
+\item Notes: Both tests applied to the entity-demeaned residuals from the
+main specification. Rejection ($p < 0.05$) indicates heteroscedasticity,
+justifying the use of clustered or Driscoll--Kraay standard errors.
+\end{tablenotes}
+\end{table}
