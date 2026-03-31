@@ -96,7 +96,8 @@ leads flow) = performance chasing.
 
 etf_data = df_valid[df_valid["ETF"] == selected_etf].copy()
 if len(etf_data) > 30:
-    max_lag = auto_lags(freq)
+    n_obs = len(etf_data[fc].dropna())
+    max_lag = auto_lags(n_obs)
     cc = cross_correlation(etf_data, fc, rc, max_lag=max_lag)
 
     fig_cc = go.Figure()
@@ -122,8 +123,6 @@ Darker colors = stronger predictive power. Look for which ETFs and which lags
 show the most concentration.
 """)
 
-max_lag = auto_lags(freq)
-
 @st.cache_data(show_spinner="Computing R² by lag...")
 def compute_all_r2(freq):
     _df = load_data(freq)
@@ -133,7 +132,8 @@ def compute_all_r2(freq):
     _valid = _df.groupby("ETF")[_fc].apply(lambda x: x.notna().sum())
     _valid = _valid[_valid > 20].index.tolist()
     _df = _df[_df["ETF"].isin(_valid)]
-    return r_squared_by_lag_all_etfs(_df, _fc, _rc, max_lag=auto_lags(freq))
+    _n = _df[_fc].dropna().shape[0] // max(len(_valid), 1)
+    return r_squared_by_lag_all_etfs(_df, _fc, _rc, max_lag=auto_lags(_n))
 
 
 all_r2 = compute_all_r2(freq)
