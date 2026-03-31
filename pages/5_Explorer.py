@@ -96,9 +96,10 @@ leads flow) = performance chasing.
 
 etf_data = df_valid[df_valid["ETF"] == selected_etf].copy()
 if len(etf_data) > 30:
-    n_obs = len(etf_data[fc].dropna())
+    etf_sorted = etf_data.set_index("Date").sort_index()
+    n_obs = len(etf_sorted[fc].dropna())
     max_lag = auto_lags(n_obs)
-    cc = cross_correlation(etf_data, fc, rc, max_lag=max_lag)
+    cc = cross_correlation(etf_sorted[fc], etf_sorted[rc], max_lag=max_lag)
 
     fig_cc = go.Figure()
     colors = ["#2ca02c" if v > 0 else "#d62728" for v in cc["correlation"]]
