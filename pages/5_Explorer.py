@@ -98,8 +98,8 @@ etf_data = df_valid[df_valid["ETF"] == selected_etf].copy()
 if len(etf_data) > 30:
     etf_sorted = etf_data.set_index("Date").sort_index()
     n_obs = len(etf_sorted[fc].dropna())
-    max_lag = auto_lags(n_obs)
-    cc = cross_correlation(etf_sorted[fc], etf_sorted[rc], max_lag=max_lag)
+    lag_list = auto_lags(n_obs)
+    cc = cross_correlation(etf_sorted[fc], etf_sorted[rc], max_lag=max(lag_list))
 
     fig_cc = go.Figure()
     colors = ["#2ca02c" if v > 0 else "#d62728" for v in cc["correlation"]]
@@ -133,25 +133,23 @@ def compute_all_r2(freq):
     _valid = _df.groupby("ETF")[_fc].apply(lambda x: x.notna().sum())
     _valid = _valid[_valid > 20].index.tolist()
     _df = _df[_df["ETF"].isin(_valid)]
-    _n = _df[_fc].dropna().shape[0] // max(len(_valid), 1)
-    return r_squared_by_lag_all_etfs(_df, _fc, _rc, max_lag=auto_lags(_n))
+    return r_squared_by_lag_all_etfs(_df, _fc, _rc)
 
 
 all_r2 = compute_all_r2(freq)
-if not all_r2.empty:
-    lag_cols = [c for c in all_r2.columns if c.startswith("R2_lag")]
-    if lag_cols:
-        heatmap_data = all_r2.set_index("ETF")[lag_cols]
-        heatmap_data.columns = [c.replace("R2_lag", "") for c in lag_cols]
+if not all_r2.empty and "lag" in all_r2.columns:
+    # Pivot long-form (ETF, lag, r_squared) to wide for heatmap
+    heatmap_data = all_r2.pivot_table(index="ETF", columns="lag", values="r_squared")
+    heatmap_data.columns = [str(int(c)) for c in heatmap_data.columns]
 
-        fig_hm = go.Figure(data=go.Heatmap(
-            z=heatmap_data.values, x=heatmap_data.columns, y=heatmap_data.index,
-            colorscale="YlOrRd", hovertemplate="ETF: %{y}<br>Lag: %{x}<br>R²: %{z:.4f}<extra></extra>",
-        ))
-        fig_hm.update_layout(height=max(400, len(heatmap_data) * 18),
-                             xaxis_title=f"Lag ({freq_label})", yaxis_title="ETF",
-                             title="R² by Lag: All ETFs")
-        st.plotly_chart(fig_hm, use_container_width=True)
+    fig_hm = go.Figure(data=go.Heatmap(
+        z=heatmap_data.values, x=heatmap_data.columns, y=heatmap_data.index,
+        colorscale="YlOrRd", hovertemplate="ETF: %{y}<br>Lag: %{x}<br>R²: %{z:.4f}<extra></extra>",
+    ))
+    fig_hm.update_layout(height=max(400, len(heatmap_data) * 18),
+                         xaxis_title=f"Lag ({freq_label})", yaxis_title="ETF",
+                         title="R² by Lag: All ETFs")
+    st.plotly_chart(fig_hm, use_container_width=True)
 
 # ============================================================
 # 4. Seasonality
@@ -164,21 +162,22 @@ well-documented — do ARK ETFs exhibit similar patterns?
 
 if len(etf_data) > 30:
     seas = seasonality_analysis(etf_data, fc)
-    if seas is not None and "monthly_avg" in seas:
-        mavg = seas["monthly_avg"]
-        if not mavg.empty:
-            month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-            colors = ["#d62728" if m == "Jan" else "#1f77b4" for m in month_names[:len(mavg)]]
-            fig_seas = go.Figure(go.Bar(x=month_names[:len(mavg)], y=mavg.values,
-                                        marker_color=colors))
-            fig_seas.add_hline(y=0, line_dash="dash", line_color="gray")
-            fig_seas.update_layout(height=350, yaxis_title=flow_ylabel,
-                                   title=f"{selected_etf}: Average Flow by Calendar Month")
-            st.plotly_chart(fig_seas, use_container_width=True)
+    if seas is not None and not seas.empty:
+        month_names = seas["Month_Name"].tolist()
+        mean_vals = seas["Mean"].tolist()
+        colors = ["#d62728" if m == "Jan" else "#1f77b4" for m in month_names]
+        fig_seas = go.Figure(go.Bar(x=month_names, y=mean_vals, marker_color=colors))
+        fig_seas.add_hline(y=0, line_dash="dash", line_color="gray")
+        fig_seas.update_layout(height=350, yaxis_title=flow_ylabel,
+                               title=f"{selected_etf}: Average Flow by Calendar Month")
+        st.plotly_chart(fig_seas, use_container_width=True)
 
-            if "january_ttest" in seas and seas["january_ttest"]:
-                jt = seas["january_ttest"]
-                col1, col2 = st.columns(2)
-                col1.metric("January avg", f"{jt.get('jan_mean', 0):.2f}")
-                col2.metric("Jan vs Other p-value", f"{jt.get('ttest_p', 1):.4f}")
+        # January vs rest t-test
+        jan_row = seas[seas["Month"] == 1]
+        other_rows = seas[seas["Month"] != 1]
+        if not jan_row.empty and not other_rows.empty:
+            jan_mean = jan_row.iloc[0]["Mean"]
+            other_mean = other_rows["Mean"].mean()
+            col1, col2 = st.columns(2)
+            col1.metric("January avg", f"{jan_mean:.2f}")
+            col2.metric("Other months avg", f"{other_mean:.2f}")
