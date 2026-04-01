@@ -77,7 +77,7 @@ if len(etf_dist) > 0:
                       annotation_text="Median", annotation_position="top right")
         fig.add_vline(x=0, line_color="gray", opacity=0.4)
         fig.update_layout(height=350, xaxis_title=flow_ylabel, yaxis_title="Count")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         st.metric("Mean", f"{etf_dist.mean():.2f}")
         st.metric("Std Dev", f"{etf_dist.std():.2f}")
@@ -112,7 +112,7 @@ if len(etf_data) > 30:
     fig_cc.update_layout(height=350, xaxis_title=f"Lag ({freq_label})",
                          yaxis_title="Correlation",
                          title=f"{selected_etf}: Flow-Return Cross-Correlogram")
-    st.plotly_chart(fig_cc, use_container_width=True)
+    st.plotly_chart(fig_cc, width="stretch")
 
 # ============================================================
 # 3. R² by Lag: All ETFs Heatmap
@@ -149,7 +149,7 @@ if not all_r2.empty and "lag" in all_r2.columns:
     fig_hm.update_layout(height=max(400, len(heatmap_data) * 18),
                          xaxis_title=f"Lag ({freq_label})", yaxis_title="ETF",
                          title="R² by Lag: All ETFs")
-    st.plotly_chart(fig_hm, use_container_width=True)
+    st.plotly_chart(fig_hm, width="stretch")
 
 # ============================================================
 # 4. Seasonality
@@ -170,7 +170,7 @@ if len(etf_data) > 30:
         fig_seas.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_seas.update_layout(height=350, yaxis_title=flow_ylabel,
                                title=f"{selected_etf}: Average Flow by Calendar Month")
-        st.plotly_chart(fig_seas, use_container_width=True)
+        st.plotly_chart(fig_seas, width="stretch")
 
         # January vs rest t-test
         jan_row = seas[seas["Month"] == 1]

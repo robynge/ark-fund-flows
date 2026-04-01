@@ -45,7 +45,7 @@ if t6_f.exists():
         st.dataframe(var_df.style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
 
     st.info("""
     **Interpretation**: Two-way and DK standard errors are larger than entity-clustered SE,
@@ -59,7 +59,7 @@ if diag_f.exists():
     st.subheader("Heteroscedasticity Diagnostics")
     st.dataframe(pd.read_csv(diag_f).style.format({
         "statistic": "{:.2f}", "p_value": "{:.6f}"}),
-        use_container_width=True, hide_index=True)
+        width="stretch", hide_index=True)
     st.warning("Both tests reject homoscedasticity (p < 0.001) — robust SE are necessary.")
 
 
@@ -92,13 +92,13 @@ if real_f.exists() and fake_f.exists():
         st.dataframe(pd.read_csv(real_f).style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
     with col2:
         st.subheader("Placebo (Lead Returns)")
         st.dataframe(pd.read_csv(fake_f).style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
 
 # Granger
 t8_f = RESULTS / "table_8_granger.csv"
@@ -107,7 +107,7 @@ if t8_f.exists():
     t8 = pd.read_csv(t8_f)
     st.dataframe(t8.style.format({
         "F_stat": "{:.2f}", "p_value": "{:.4f}"}),
-        use_container_width=True, hide_index=True)
+        width="stretch", hide_index=True)
 
     # Summary
     ret_to_flow = t8[t8["Direction"].str.contains("Returns")]
@@ -148,7 +148,7 @@ If $\delta \neq 0$, ARKK has a different flow-performance sensitivity.
 loo_f = RESULTS / "table_5b_leave_one_out.csv"
 if loo_f.exists():
     st.subheader("Leave-One-ETF-Out")
-    st.dataframe(pd.read_csv(loo_f), use_container_width=True, hide_index=True)
+    st.dataframe(pd.read_csv(loo_f), width="stretch", hide_index=True)
 
 # ARKK heterogeneity
 t7_interact = RESULTS / "table_7_interaction.csv"
@@ -161,7 +161,7 @@ if t7_interact.exists():
     st.dataframe(df_int.style.format({
         "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
         "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-        use_container_width=True, hide_index=True)
+        width="stretch", hide_index=True)
 
     # Check if interaction terms are significant
     arkk_terms = df_int[df_int["Variable"].str.contains("_x_ARKK")]
@@ -181,13 +181,13 @@ if t7_arkk.exists() and t7_noarkk.exists():
         st.dataframe(pd.read_csv(t7_arkk).style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
     with col2:
         st.caption("Excluding ARKK")
         st.dataframe(pd.read_csv(t7_noarkk).style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
 
 
 # ============================================================
@@ -234,7 +234,7 @@ if f4_f.exists():
                 yaxis_title="Coefficient",
                 title=f"Rolling 2-Year Coefficient: {var}",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 # FM results
 fm_f = RESULTS / "table_5c_fama_macbeth.csv"
@@ -243,7 +243,7 @@ if fm_f.exists():
     st.dataframe(pd.read_csv(fm_f).style.format({
         "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
         "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-        use_container_width=True, hide_index=True)
+        width="stretch", hide_index=True)
     st.info("""
     FM coefficients are insignificant — expected with only 9 ETFs per cross-section.
     The rolling window plot above provides a more informative view of time-variation.
@@ -253,7 +253,7 @@ if fm_f.exists():
 sub_f = RESULTS / "table_4_subsample.csv"
 if sub_f.exists():
     st.subheader("Sub-sample Stability")
-    st.dataframe(pd.read_csv(sub_f), use_container_width=True, hide_index=True)
+    st.dataframe(pd.read_csv(sub_f), width="stretch", hide_index=True)
     st.success("**Verdict**: Coefficients are present across all sub-periods. The rolling window "
                "confirms time-variation exists but the **direction is consistently positive** — "
                "performance chasing is a persistent phenomenon, not an artifact of a single period.")
@@ -279,7 +279,7 @@ if pct_f.exists():
         st.dataframe(pd.read_csv(pct_f).style.format({
             "Coefficient": "{:.4f}", "Std_Error": "{:.4f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
         st.success("All windows significant with Flow % AUM.")
 
 dk_f = RESULTS / "table_5e_driscoll_kraay.csv"
@@ -289,7 +289,7 @@ if dk_f.exists():
         st.dataframe(pd.read_csv(dk_f).style.format({
             "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
             "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            use_container_width=True, hide_index=True)
+            width="stretch", hide_index=True)
         st.success("6-20d and 21-60d remain significant under DK SE.")
 
 st.success("**Verdict**: Both alternative specifications confirm the main finding — "

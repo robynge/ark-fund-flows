@@ -83,7 +83,7 @@ if len(etf_ts) > 0 and "Close_Last" in etf_ts.columns:
         height=500, hovermode="x unified", xaxis_rangeslider_visible=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(l=60, r=60, t=40, b=30))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # ============================================================
 # 2. Summary Statistics
@@ -102,11 +102,11 @@ col1, col2 = st.columns(2)
 if summary_f.exists():
     with col1:
         st.subheader("Descriptive Statistics")
-        st.dataframe(pd.read_csv(summary_f), use_container_width=True, hide_index=True)
+        st.dataframe(pd.read_csv(summary_f), width="stretch", hide_index=True)
 if bw_f.exists():
     with col2:
         st.subheader("Between/Within Decomposition")
-        st.dataframe(pd.read_csv(bw_f), use_container_width=True, hide_index=True)
+        st.dataframe(pd.read_csv(bw_f), width="stretch", hide_index=True)
 
 # ============================================================
 # 3. ARK vs Peers
@@ -132,6 +132,6 @@ if peer_etfs:
     fig_comp.update_layout(
         height=400, yaxis_title="Average Fund Flow ($M)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig_comp, use_container_width=True)
+    st.plotly_chart(fig_comp, width="stretch")
 
 st.info("**Next →** *The Evidence*: Do these visual patterns hold up statistically?")

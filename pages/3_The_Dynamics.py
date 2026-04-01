@@ -58,7 +58,7 @@ if lp_f.exists():
                       yaxis_title="Response of Fund Flow ($M)",
                       title="Impulse Response: Return Shock → Fund Flow",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # ============================================================
 # 2. Asymmetric Response
@@ -106,7 +106,7 @@ if asym_f.exists():
                       yaxis_title="Response of Fund Flow ($M)",
                       title="Asymmetric Impulse Response",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # ============================================================
 # 3. Bull vs Bear
@@ -138,11 +138,11 @@ if bull_f.exists() and bear_f.exists():
                       yaxis_title="Response of Fund Flow ($M)",
                       title="Performance Chasing by Market Regime",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 sub_f = RESULTS / "table_4_subsample.csv"
 if sub_f.exists():
-    st.dataframe(pd.read_csv(sub_f), use_container_width=True, hide_index=True)
+    st.dataframe(pd.read_csv(sub_f), width="stretch", hide_index=True)
 
 # ============================================================
 # 4. Drawdown Event Study
@@ -200,7 +200,7 @@ if len(dd_all) > 0:
                              annotation_position="top left", annotation_font_size=9)
         fig_dd.update_layout(height=400, yaxis_title="Price Index (base=100)",
                              title=f"{dd_etf}: Drawdown Episodes (≥10%)")
-        st.plotly_chart(fig_dd, use_container_width=True)
+        st.plotly_chart(fig_dd, width="stretch")
 
     # Scatter plots
     if len(dd_flow) > 0:
@@ -215,7 +215,7 @@ if len(dd_all) > 0:
                     fig_s.update_layout(height=350, showlegend=False,
                                         xaxis_title="Drawdown Depth (%)",
                                         yaxis_title=f"Cumulative Flow {label} ($M)")
-                    st.plotly_chart(fig_s, use_container_width=True)
+                    st.plotly_chart(fig_s, width="stretch")
 
         # Regression table
         dd_reg = drawdown_flow_regression(dd_flow)
@@ -224,6 +224,6 @@ if len(dd_all) > 0:
             st.dataframe(dd_reg.style.format({
                 "β_Depth": "{:.4f}", "β_Depth_p": "{:.4f}",
                 "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}", "R²": "{:.4f}",
-            }), hide_index=True, use_container_width=True)
+            }), hide_index=True, width="stretch")
 
 st.info("**Next →** *Robustness*: Are these findings reliable? We test with 7 different validation methods.")

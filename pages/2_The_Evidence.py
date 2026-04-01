@@ -64,7 +64,7 @@ if scatter_f.exists():
         yaxis_title="Fund Flow (% of AUM)",
         title="Sirri-Tufano Replication: Performance Rank vs. Flow Growth (Monthly)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # ============================================================
 # 2. S&T Piecewise Linear Regression (Table 2)
@@ -91,7 +91,7 @@ Columns add controls incrementally: (1) Base, (2) +VIX, (3) +Calendar, (4) +Peer
 
 t2_f = RESULTS / "table_2_sirri_tufano.csv"
 if t2_f.exists():
-    st.dataframe(pd.read_csv(t2_f), use_container_width=True, hide_index=True)
+    st.dataframe(pd.read_csv(t2_f), width="stretch", hide_index=True)
     st.success(r"""
     **Result**: HIGHPERF = 18.2*** is **10× larger** than MIDPERF = 1.76 (ns).
     This confirms the **convex flow-performance relationship** in ETFs — the S&T
@@ -147,7 +147,7 @@ if t3_f.exists():
              "Peer_Agg_Flow", "event_covid", "event_ukraine",
              "event_fed_hikes", "event_banking_crisis", "event_arkb_approval",
              "R²", "N"] if v in display.index]
-    st.dataframe(display.loc[order], use_container_width=True)
+    st.dataframe(display.loc[order], width="stretch")
 
     st.success("""
     **Key finding**: The 1-5 day window (last week) is **not significant** — investors
