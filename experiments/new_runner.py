@@ -22,6 +22,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -44,6 +45,7 @@ from placebo import (
     placebo_test, leave_one_etf_out,
     subsample_comparison, fama_macbeth,
     breusch_pagan_test, white_test, driscoll_kraay_panel,
+    panel_ols_twoway, rolling_panel_regression,
 )
 
 logger = logging.getLogger(__name__)
@@ -203,7 +205,7 @@ def run_table_3(df_daily: pd.DataFrame) -> dict:
         ("(5) + Events", base_x + vix_cols + cal_cols + peer_cols + event_cols),
     ]
 
-    from placebo import _panel_ols_demeaned
+    from placebo import _panel_ols_demeaned, panel_ols_twoway
 
     results = {}
     for name, x_cols in specs:
@@ -212,6 +214,23 @@ def run_table_3(df_daily: pd.DataFrame) -> dict:
         if res:
             results[name] = res
             logger.info("  %s: R²=%.4f, N=%d", name, res["r_squared"], res["n_obs"])
+
+    # (6) Entity + Time FE (two-way fixed effects)
+    full_x = [c for c in base_x + vix_cols + cal_cols + peer_cols + event_cols if c in ark.columns]
+    res_twfe = panel_ols_twoway(ark, "Fund_Flow", full_x,
+                                 entity_effects=True, time_effects=True)
+    if res_twfe:
+        results["(6) Two-way FE"] = res_twfe
+        logger.info("  (6) Two-way FE: R²=%.4f, N=%d",
+                     res_twfe["r_squared_within"], res_twfe["n_obs"])
+
+    # (7) Two-way clustered SE (entity + date)
+    res_2cl = panel_ols_twoway(ark, "Fund_Flow", full_x,
+                                cluster_entity=True, cluster_time=True)
+    if res_2cl:
+        results["(7) Two-way Cluster"] = res_2cl
+        logger.info("  (7) Two-way Cluster: R²=%.4f, N=%d",
+                     res_2cl["r_squared_within"], res_2cl["n_obs"])
 
     return results
 
@@ -368,6 +387,152 @@ def run_table_5f(df: pd.DataFrame) -> dict:
     }
 
 
+def run_table_6(df: pd.DataFrame) -> pd.DataFrame:
+    """Table 6: SE comparison — same spec, different SE methods."""
+    logger.info("Running Table 6 (SE comparison)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+
+    se_methods = [
+        ("Entity Cluster", dict(cluster_entity=True, cluster_time=False, cov_type="clustered")),
+        ("Two-way Cluster", dict(cluster_entity=True, cluster_time=True, cov_type="clustered")),
+        ("Driscoll-Kraay", dict(cov_type="kernel")),
+    ]
+
+    rows = []
+    for method_name, kwargs in se_methods:
+        res = panel_ols_twoway(ark, "Fund_Flow", x_cols, **kwargs)
+        if res is None:
+            continue
+        for _, cr in res["coefficients"].iterrows():
+            rows.append({
+                "SE_Method": method_name,
+                "Variable": cr["Variable"],
+                "Coefficient": cr["Coefficient"],
+                "Std_Error": cr["Std_Error"],
+                "t_stat": cr["t_stat"],
+                "p_value": cr["p_value"],
+            })
+    return pd.DataFrame(rows)
+
+
+def run_table_7(df: pd.DataFrame) -> dict:
+    """Table 7: ARKK heterogeneity — split sample + interaction."""
+    logger.info("Running Table 7 (ARKK heterogeneity)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+
+    from placebo import _panel_ols_demeaned
+
+    # (A) ARKK only — use HC1 since only 1 entity (can't cluster)
+    arkk_only = ark[ark["ETF"] == "ARKK"][["Fund_Flow"] + x_cols].dropna()
+    if len(arkk_only) > 30:
+        y = arkk_only["Fund_Flow"] - arkk_only["Fund_Flow"].mean()
+        X = arkk_only[x_cols].copy()
+        for c in x_cols:
+            X[c] = X[c] - X[c].mean()
+        X = sm.add_constant(X)
+        m = sm.OLS(y, X).fit(cov_type="HC1")
+        coef_df = pd.DataFrame({
+            "Variable": m.params.index, "Coefficient": m.params.values,
+            "Std_Error": m.bse.values, "t_stat": m.tvalues.values,
+            "p_value": m.pvalues.values,
+        })
+        coef_df = coef_df[coef_df["Variable"] != "const"].reset_index(drop=True)
+        res_arkk = {"coefficients": coef_df, "r_squared": m.rsquared, "n_obs": int(m.nobs), "n_entities": 1}
+    else:
+        res_arkk = None
+
+    # (B) Excluding ARKK
+    no_arkk = ark[ark["ETF"] != "ARKK"].dropna(subset=["Fund_Flow"] + x_cols)
+    try:
+        res_no_arkk = _panel_ols_demeaned(no_arkk, "Fund_Flow", x_cols)
+    except Exception as e:
+        logger.warning("Table 7 excluding ARKK failed: %s", e)
+        res_no_arkk = None
+
+    # (C) Interaction: ARKK_dummy × CumRet (use linearmodels to avoid demeaning issues)
+    ark_int = ark[["ETF", "Date", "Fund_Flow"] + x_cols].dropna().copy()
+    ark_int["ARKK_d"] = (ark_int["ETF"] == "ARKK").astype(float)
+    interact_cols = list(x_cols)
+    for col in x_cols:
+        icol = f"{col}_x_ARKK"
+        ark_int[icol] = ark_int[col] * ark_int["ARKK_d"]
+        interact_cols.append(icol)
+    # Use linearmodels directly for interaction (avoids demeaning issues with dummy × continuous)
+    try:
+        from linearmodels.panel import PanelOLS as _PanelOLS
+        _sub = ark_int.set_index(["ETF", "Date"])
+        _m = _PanelOLS(_sub["Fund_Flow"], _sub[interact_cols],
+                        entity_effects=True, drop_absorbed=True)
+        _r = _m.fit(cov_type="clustered", cluster_entity=True)
+        res_interact = {
+            "coefficients": pd.DataFrame({
+                "Variable": _r.params.index, "Coefficient": _r.params.values,
+                "Std_Error": _r.std_errors.values, "t_stat": _r.tstats.values,
+                "p_value": _r.pvalues.values}).reset_index(drop=True),
+            "r_squared_within": _r.rsquared_within,
+            "n_obs": int(_r.nobs), "n_entities": _r.entity_info.total,
+        }
+    except Exception as e:
+        logger.warning("Table 7 interaction failed: %s", e)
+        res_interact = None
+
+    return {
+        "arkk_only": res_arkk,
+        "excluding_arkk": res_no_arkk,
+        "interaction": res_interact,
+    }
+
+
+def run_table_8(df: pd.DataFrame) -> pd.DataFrame:
+    """Table 8: Granger causality test — Return → Flow vs Flow → Return."""
+    logger.info("Running Table 8 (Granger causality)")
+
+    from analysis import granger_causality_test
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    fc = "Fund_Flow" if "Fund_Flow" in ark.columns else "Flow_Sum"
+    rc = "Return" if "Return" in ark.columns else "Return_Cum"
+
+    rows = []
+    for etf in ETF_NAMES:
+        etf_df = ark[ark["ETF"] == etf]
+        if len(etf_df) < 50:
+            continue
+        gc = granger_causality_test(etf_df, fc, rc, max_lag=5)
+        if gc is not None and not gc.empty:
+            for direction in gc["direction"].unique():
+                dir_df = gc[gc["direction"] == direction]
+                best = dir_df.loc[dir_df["p_value"].idxmin()]
+                rows.append({
+                    "ETF": etf,
+                    "Direction": direction,
+                    "Best_Lag": int(best["lag"]),
+                    "F_stat": best["F_statistic"],
+                    "p_value": best["p_value"],
+                })
+    return pd.DataFrame(rows)
+
+
+def run_figure_4(df: pd.DataFrame) -> pd.DataFrame:
+    """Figure 4 data: Rolling-window panel regression coefficients (2-year window)."""
+    logger.info("Running Figure 4 (rolling coefficients)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+
+    return rolling_panel_regression(ark, "Fund_Flow", x_cols, window_days=504)
+
+
 def run_economic_significance(df: pd.DataFrame,
                                main_results: dict) -> dict:
     """Compute economic significance of main specification coefficients."""
@@ -486,8 +651,9 @@ def run_all(output_dir: str | None = None) -> dict:
     for spec_name, res in t3.items():
         for _, cr in res["coefficients"].iterrows():
             rows.append({"spec": spec_name, **cr.to_dict()})
+        r2 = res.get("r_squared", res.get("r_squared_within", np.nan))
         rows.append({"spec": spec_name, "Variable": "R²",
-                      "Coefficient": res["r_squared"]})
+                      "Coefficient": r2})
         rows.append({"spec": spec_name, "Variable": "N",
                       "Coefficient": res["n_obs"]})
     pd.DataFrame(rows).to_csv(out / "table_3_main_panel.csv", index=False)
@@ -560,6 +726,35 @@ def run_all(output_dir: str | None = None) -> dict:
     all_results["figure_st1"] = fst1
     fst1.to_csv(out / "figure_st1_scatter.csv", index=False)
     logger.info("Figure ST1 data saved")
+
+    # Table 6: SE comparison
+    t6 = run_table_6(df_daily)
+    all_results["table_6"] = t6
+    if not t6.empty:
+        t6.to_csv(out / "table_6_se_comparison.csv", index=False)
+    logger.info("Table 6 saved")
+
+    # Table 7: ARKK heterogeneity
+    t7 = run_table_7(df_daily)
+    all_results["table_7"] = t7
+    for key in ["arkk_only", "excluding_arkk", "interaction"]:
+        if t7.get(key) and "coefficients" in t7[key]:
+            t7[key]["coefficients"].to_csv(out / f"table_7_{key}.csv", index=False)
+    logger.info("Table 7 saved")
+
+    # Table 8: Granger causality
+    t8 = run_table_8(df_daily)
+    all_results["table_8"] = t8
+    if not t8.empty:
+        t8.to_csv(out / "table_8_granger.csv", index=False)
+    logger.info("Table 8 saved")
+
+    # Figure 4: Rolling coefficients
+    f4 = run_figure_4(df_daily)
+    all_results["figure_4"] = f4
+    if not f4.empty:
+        f4.to_csv(out / "figure_4_rolling.csv", index=False)
+    logger.info("Figure 4 data saved")
 
     elapsed = time.time() - t0
     logger.info("All done in %.1fs. Results saved to %s", elapsed, out)

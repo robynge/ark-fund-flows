@@ -295,3 +295,97 @@ def driscoll_kraay_panel(df: pd.DataFrame, y_col: str, x_cols: list[str],
         "n_entities": model.entity_info.total,
         "bandwidth": maxlag,
     }
+
+
+# ============================================================
+# Two-way FE / Two-way clustering via linearmodels
+# ============================================================
+
+def panel_ols_twoway(df: pd.DataFrame, y_col: str, x_cols: list[str],
+                     entity_col: str = "ETF", date_col: str = "Date",
+                     entity_effects: bool = True, time_effects: bool = False,
+                     cluster_entity: bool = True, cluster_time: bool = False,
+                     cov_type: str = "clustered") -> dict | None:
+    """Panel OLS via linearmodels with flexible FE and clustering.
+
+    Supports entity FE, time FE, two-way FE, entity clustering,
+    two-way clustering, and Driscoll-Kraay SE.
+    """
+    from linearmodels.panel import PanelOLS
+
+    keep = [entity_col, date_col, y_col] + x_cols
+    sub = df[keep].dropna().copy()
+    if len(sub) < 30:
+        return None
+
+    sub = sub.set_index([entity_col, date_col])
+    y = sub[y_col]
+    X = sub[x_cols]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = PanelOLS(y, X, entity_effects=entity_effects,
+                         time_effects=time_effects, drop_absorbed=True)
+
+        if cov_type == "kernel":
+            T = y.reset_index()[date_col].nunique()
+            bw = int(T ** (1 / 3))
+            result = model.fit(cov_type="kernel", kernel="bartlett", bandwidth=bw)
+        else:
+            result = model.fit(cov_type=cov_type,
+                               cluster_entity=cluster_entity,
+                               cluster_time=cluster_time)
+
+    coef_df = pd.DataFrame({
+        "Variable": result.params.index,
+        "Coefficient": result.params.values,
+        "Std_Error": result.std_errors.values,
+        "t_stat": result.tstats.values,
+        "p_value": result.pvalues.values,
+    }).reset_index(drop=True)
+
+    return {
+        "coefficients": coef_df,
+        "r_squared_within": result.rsquared_within,
+        "n_obs": int(result.nobs),
+        "n_entities": result.entity_info.total,
+    }
+
+
+# ============================================================
+# Rolling-window panel regression
+# ============================================================
+
+def rolling_panel_regression(df: pd.DataFrame, y_col: str, x_cols: list[str],
+                              entity_col: str = "ETF", date_col: str = "Date",
+                              window_days: int = 504) -> pd.DataFrame:
+    """Estimate panel regression over rolling time windows.
+
+    Returns DataFrame with: window_end, beta (for each x_col), se, p_value, n_obs.
+    """
+    dates = sorted(df[date_col].unique())
+    results = []
+
+    for i, end_date in enumerate(dates):
+        start_idx = max(0, i - window_days + 1)
+        start_date = dates[start_idx]
+        if i - start_idx < window_days // 2:
+            continue
+
+        window_df = df[(df[date_col] >= start_date) & (df[date_col] <= end_date)]
+        if window_df[entity_col].nunique() < 3 or len(window_df) < 50:
+            continue
+
+        res = _panel_ols_demeaned(window_df, y_col, x_cols, entity_col)
+        if res is None:
+            continue
+
+        row = {"window_end": end_date, "n_obs": res["n_obs"]}
+        for _, cr in res["coefficients"].iterrows():
+            var = cr["Variable"]
+            row[f"{var}_beta"] = cr["Coefficient"]
+            row[f"{var}_se"] = cr["Std_Error"]
+            row[f"{var}_pval"] = cr["p_value"]
+        results.append(row)
+
+    return pd.DataFrame(results)

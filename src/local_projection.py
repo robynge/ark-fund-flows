@@ -32,8 +32,14 @@ def _build_lead_flow(df: pd.DataFrame, flow_col: str,
 
 def _run_single_horizon(pdf: pd.DataFrame, y_col: str,
                         x_cols: list[str], entity_col: str = "ETF",
-                        cluster: bool = True) -> dict | None:
-    """Run one OLS regression with entity-demeaning and clustered SE."""
+                        cluster: bool = True,
+                        hac_maxlags: int | None = None) -> dict | None:
+    """Run one OLS regression with entity-demeaning.
+
+    SE options:
+    - cluster=True, hac_maxlags=None: entity-clustered (default)
+    - hac_maxlags=int: Newey-West HAC with given maxlags (for LP overlap)
+    """
     keep = [entity_col, y_col] + x_cols
     sub = pdf[keep].dropna()
     if len(sub) < 30:
@@ -51,7 +57,12 @@ def _run_single_horizon(pdf: pd.DataFrame, y_col: str,
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        if cluster:
+        if hac_maxlags is not None:
+            model = sm.OLS(y, X).fit(
+                cov_type="HAC",
+                cov_kwds={"maxlags": hac_maxlags},
+            )
+        elif cluster:
             model = sm.OLS(y, X).fit(
                 cov_type="cluster",
                 cov_kwds={"groups": sub[entity_col]},
@@ -105,8 +116,10 @@ def local_projection(df: pd.DataFrame,
     results = []
     for h in range(max_horizon + 1):
         y_col = f"Flow_lead{h}"
+        # Use HAC SE with horizon-adaptive maxlags to handle LP overlap
         res = _run_single_horizon(pdf, y_col, x_cols,
-                                  cluster=entity_fe)
+                                  cluster=entity_fe,
+                                  hac_maxlags=max(1, h))
         if res is None:
             results.append({
                 "horizon": h, "beta": np.nan, "se": np.nan,
@@ -166,7 +179,7 @@ def local_projection_asymmetric(df: pd.DataFrame,
     results = []
     for h in range(max_horizon + 1):
         y_col = f"Flow_lead{h}"
-        res = _run_single_horizon(pdf, y_col, x_cols)
+        res = _run_single_horizon(pdf, y_col, x_cols, hac_maxlags=max(1, h))
         if res is None:
             results.append({"horizon": h,
                             "beta_pos": np.nan, "se_pos": np.nan,
@@ -253,7 +266,7 @@ def local_projection_cumulative(df: pd.DataFrame,
     results = []
     for h in range(max_horizon + 1):
         y_col = f"CumFlow_lead{h}"
-        res = _run_single_horizon(pdf, y_col, x_cols)
+        res = _run_single_horizon(pdf, y_col, x_cols, hac_maxlags=max(1, h))
         if res is None:
             results.append({"horizon": h, "beta_cum": np.nan, "se": np.nan,
                             "ci_lower": np.nan, "ci_upper": np.nan,
