@@ -144,21 +144,39 @@ def apply_factor_D(df: pd.DataFrame,
 
 def apply_factor_E(df: pd.DataFrame, flow_col: str = "Fund_Flow",
                    date_col: str = "Date") -> pd.DataFrame:
-    """Factor E: Add same-category aggregate peer flow as control variable.
+    """Factor E: Add per-peer-group aggregate flow as control variable.
 
-    For each ETF on each date, computes the mean flow of all OTHER ETFs
-    and adds it as Peer_Agg_Flow. This captures category-wide flow
-    momentum (e.g., all tech ETFs seeing inflows simultaneously)
-    that is not specific to the target ETF.
+    For each ARK ETF on each date, computes the mean flow of its OWN
+    peer group (from PEER_MAPPING) and adds it as Peer_Agg_Flow.
+    Falls back to cross-sectional leave-one-out mean if no peer mapping
+    is available.
     """
+    from data_loader import PEER_MAPPING, ETF_NAMES
+
     df = df.copy()
-    # Total flow per date and count
-    date_totals = df.groupby(date_col)[flow_col].agg(["sum", "count"])
-    date_totals.columns = ["_total_flow", "_n_etfs"]
-    df = df.merge(date_totals, on=date_col, how="left")
-    # Leave-one-out mean: (total - own) / (n - 1)
-    df["Peer_Agg_Flow"] = (df["_total_flow"] - df[flow_col]) / (df["_n_etfs"] - 1)
-    df = df.drop(columns=["_total_flow", "_n_etfs"])
+    df["Peer_Agg_Flow"] = np.nan
+
+    if PEER_MAPPING:
+        # Build a lookup: for each date, the flow of every ETF
+        flow_by_date_etf = df.set_index([date_col, "ETF"])[flow_col]
+
+        for ark_etf, peers in PEER_MAPPING.items():
+            ark_mask = df["ETF"] == ark_etf
+            if not ark_mask.any():
+                continue
+            # Get flows of this ARK ETF's peers on each date
+            peer_flows = df[df["ETF"].isin(peers)].groupby(date_col)[flow_col].mean()
+            peer_flows.name = "_peer_mean"
+            # Map to ARK ETF rows
+            df.loc[ark_mask, "Peer_Agg_Flow"] = df.loc[ark_mask, date_col].map(peer_flows).values
+    else:
+        # Fallback: cross-sectional leave-one-out (old behavior)
+        date_totals = df.groupby(date_col)[flow_col].agg(["sum", "count"])
+        date_totals.columns = ["_total_flow", "_n_etfs"]
+        df = df.merge(date_totals, on=date_col, how="left")
+        df["Peer_Agg_Flow"] = (df["_total_flow"] - df[flow_col]) / (df["_n_etfs"] - 1)
+        df = df.drop(columns=["_total_flow", "_n_etfs"])
+
     return df
 
 

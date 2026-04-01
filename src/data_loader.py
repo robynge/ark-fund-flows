@@ -135,17 +135,26 @@ def load_bbg_peer_data() -> tuple[dict[str, list[str]], pd.DataFrame, pd.DataFra
         except Exception as e:
             logger.warning("Failed to load price sheet from %s: %s", path.name, e)
 
-        try:
-            flow = _load_bbg_wide_sheet(path, "fundflow", "Fund_Flow")
-            all_flow.append(flow)
-        except Exception as e:
-            logger.warning("Failed to load fundflow sheet from %s: %s", path.name, e)
+        # Try standardized name first, fall back to legacy name
+        for flow_sheet in ("fund flow", "fundflow"):
+            try:
+                flow = _load_bbg_wide_sheet(path, flow_sheet, "Fund_Flow")
+                all_flow.append(flow)
+                break
+            except Exception:
+                continue
+        else:
+            logger.warning("Failed to load fund flow sheet from %s", path.name)
 
-        try:
-            aum = _load_bbg_wide_sheet(path, "totalassets", "AUM")
-            all_aum.append(aum)
-        except Exception as e:
-            logger.warning("Failed to load totalassets sheet from %s: %s", path.name, e)
+        for aum_sheet in ("total assets", "totalassets"):
+            try:
+                aum = _load_bbg_wide_sheet(path, aum_sheet, "AUM")
+                all_aum.append(aum)
+                break
+            except Exception:
+                continue
+        else:
+            logger.warning("Failed to load total assets sheet from %s", path.name)
 
     # Combine and deduplicate
     if all_price:
@@ -382,18 +391,34 @@ def add_source_flag(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_peer_benchmark(df: pd.DataFrame, return_col: str,
-                       min_etfs: int = 10) -> pd.DataFrame:
-    """
-    Compute cross-sectional mean return per date as Benchmark_Return,
-    then Excess_Return = Return - Benchmark_Return.
-    Dates with fewer than min_etfs ETFs get NaN benchmark.
+                       min_etfs: int = 3) -> pd.DataFrame:
+    """Compute per-peer-group mean return as Benchmark_Return.
+
+    For each ARK ETF, the benchmark is the mean return of its OWN peer
+    group (from PEER_MAPPING) on each date.  Falls back to cross-sectional
+    mean if no peer mapping is available.
     """
     df = df.copy()
-    bench = df.groupby("Date")[return_col].agg(["mean", "count"])
-    bench.columns = ["Benchmark_Return", "_count"]
-    bench.loc[bench["_count"] < min_etfs, "Benchmark_Return"] = np.nan
-    bench = bench[["Benchmark_Return"]]
-    df = df.merge(bench, on="Date", how="left")
+    df["Benchmark_Return"] = np.nan
+
+    if PEER_MAPPING:
+        for ark_etf, peers in PEER_MAPPING.items():
+            ark_mask = df["ETF"] == ark_etf
+            if not ark_mask.any():
+                continue
+            peer_ret = df[df["ETF"].isin(peers)].groupby("Date")[return_col].agg(["mean", "count"])
+            peer_ret.columns = ["_peer_ret", "_count"]
+            peer_ret.loc[peer_ret["_count"] < min_etfs, "_peer_ret"] = np.nan
+            df.loc[ark_mask, "Benchmark_Return"] = (
+                df.loc[ark_mask, "Date"].map(peer_ret["_peer_ret"]).values
+            )
+    else:
+        # Fallback: cross-sectional mean (old behavior)
+        bench = df.groupby("Date")[return_col].agg(["mean", "count"])
+        bench.columns = ["Benchmark_Return", "_count"]
+        bench.loc[bench["_count"] < min_etfs, "Benchmark_Return"] = np.nan
+        df = df.merge(bench[["Benchmark_Return"]], on="Date", how="left")
+
     df["Excess_Return"] = df[return_col] - df["Benchmark_Return"]
     return df
 
@@ -467,13 +492,16 @@ def load_aum_data() -> pd.DataFrame:
     # 2. Peer AUM from Bloomberg peer files (totalassets sheets)
     peer_files = discover_peer_files()
     for ark_etf, path in peer_files.items():
-        try:
-            aum = _load_bbg_wide_sheet(path, "totalassets", "AUM")
-            # Only keep non-ARK ETFs (ARK AUM comes from dedicated file above)
-            aum = aum[~aum["ETF"].isin(ETF_NAMES)].copy()
-            frames.append(aum)
-        except Exception as e:
-            logger.warning("Failed to load AUM from %s: %s", path.name, e)
+        for aum_sheet in ("total assets", "totalassets"):
+            try:
+                aum = _load_bbg_wide_sheet(path, aum_sheet, "AUM")
+                aum = aum[~aum["ETF"].isin(ETF_NAMES)].copy()
+                frames.append(aum)
+                break
+            except Exception:
+                continue
+        else:
+            logger.warning("Failed to load AUM from %s", path.name)
 
     if not frames:
         return pd.DataFrame(columns=["Date", "ETF", "AUM"])
