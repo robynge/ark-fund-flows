@@ -29,18 +29,19 @@ def _stars(p):
 # ============================================================
 st.header("1. Do Top Performers Attract More Money?")
 st.markdown(r"""
-每个月，我们把所有 ETF 按收益率从差到好排名（0 = 最差，1 = 最好），然后看
-**排名高的 ETF 是不是真的吸引了更多资金**。
+Each month, we rank all ETFs by return (0 = worst, 1 = best) and ask:
+**do higher-ranked ETFs actually attract more capital?**
 
-- **X 轴**：这只 ETF 当月在所有 ETF 中的收益排名（0-1）
-- **Y 轴**：这只 ETF 当月的资金流入/流出（占 AUM 的百分比）
-- **红线**：把 X 轴分成 20 段后每段的平均值
+- **X-axis**: the ETF's return rank among all ETFs that month (0 to 1)
+- **Y-axis**: the ETF's net fund flow that month (as % of AUM)
+- **Red line**: average flow within each of 20 equal-width rank bins
 
-如果红线是**向上弯曲**的（右端陡峭上升），说明表现最好的那批 ETF 吸引了
-**不成比例的大量资金**——这就是 Sirri & Tufano (1998) 所说的"投资者追涨"。
+If the red line **curves upward** (steep rise at the right end), it means
+top performers attract **disproportionately more capital** — the hallmark of
+performance chasing documented by Sirri & Tufano (1998).
 
 $$
-\text{Rank}_{i,t} = \frac{\text{ETF } i \text{ 在 } t \text{ 月的收益排名}}{N_t}
+\text{Rank}_{i,t} = \frac{\text{position of } R_{i,t} \text{ among all ETFs at time } t}{N_t}
 \in [0, 1]
 $$
 """)
