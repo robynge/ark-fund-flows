@@ -133,19 +133,25 @@ if t3_f.exists():
     pivot = var_rows.pivot(index="Variable", columns="spec", values="Coefficient")
     pvals = var_rows.pivot(index="Variable", columns="spec", values="p_value")
 
-    display = pivot.copy()
-    for col in display.columns:
-        for idx in display.index:
+    # Build string DataFrame directly (pandas 3.x forbids writing str into float cols)
+    rows_display = {}
+    for idx in pivot.index:
+        row_vals = {}
+        for col in pivot.columns:
             c = pivot.loc[idx, col] if idx in pivot.index else np.nan
             p = pvals.loc[idx, col] if idx in pvals.index else np.nan
-            display.loc[idx, col] = f"{c:.2f}{_stars(p)}" if not pd.isna(c) else ""
+            row_vals[col] = f"{c:.2f}{_stars(p)}" if not pd.isna(c) else ""
+        rows_display[idx] = row_vals
 
     for sv in ["R²", "N"]:
         for spec in specs:
             row = stat_rows[(stat_rows["spec"] == spec) & (stat_rows["Variable"] == sv)]
             if not row.empty:
                 val = row.iloc[0]["Coefficient"]
-                display.loc[sv, spec] = f"{val:.4f}" if sv == "R²" else f"{int(val):,}"
+                rows_display.setdefault(sv, {})[spec] = f"{val:.4f}" if sv == "R²" else f"{int(val):,}"
+
+    display = pd.DataFrame.from_dict(rows_display, orient="index")
+    display.index.name = "Variable"
 
     order = [v for v in ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60",
              "VIX_Close", "month_end", "quarter_end", "january",
