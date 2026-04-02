@@ -49,13 +49,18 @@ $$
 scatter_f = RESULTS / "figure_st1_scatter.csv"
 if scatter_f.exists():
     scatter = pd.read_csv(scatter_f)
-    scatter["rank_bin"] = pd.cut(scatter["RANK"], bins=20, labels=False) + 1
-    bin_means = scatter.groupby("rank_bin").agg(
+
+    # Filter extreme outliers (ETF inception months where Flow/AUM > 100%)
+    p1, p99 = scatter["Flow_Pct"].quantile(0.01), scatter["Flow_Pct"].quantile(0.99)
+    scatter_clean = scatter[(scatter["Flow_Pct"] >= p1) & (scatter["Flow_Pct"] <= p99)]
+
+    scatter_clean["rank_bin"] = pd.cut(scatter_clean["RANK"], bins=20, labels=False) + 1
+    bin_means = scatter_clean.groupby("rank_bin").agg(
         rank_mid=("RANK", "mean"), flow_mean=("Flow_Pct", "mean")).dropna()
 
     fig = go.Figure()
     fig.add_trace(go.Scattergl(
-        x=scatter["RANK"], y=scatter["Flow_Pct"],
+        x=scatter_clean["RANK"], y=scatter_clean["Flow_Pct"],
         mode="markers", marker=dict(size=3, opacity=0.08, color="#1f77b4"),
         name="Individual obs.", showlegend=True,
         hovertemplate="Rank: %{x:.2f}<br>Flow: %{y:.2f}%<extra></extra>"))
