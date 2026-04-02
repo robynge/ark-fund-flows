@@ -27,18 +27,22 @@ def _stars(p):
 # ============================================================
 # 1. S&T Scatter (moved from old Data Overview)
 # ============================================================
-st.header("1. Visual Evidence: Performance Rank vs. Flow")
+st.header("1. Do Top Performers Attract More Money?")
 st.markdown(r"""
-Following **Sirri & Tufano (1998, Figure 1)**, we rank each ETF's monthly return
-within the cross-section and plot it against fund flow growth. The red line shows
-**20-bin averages** — the signature S&T visualization.
+每个月，我们把所有 ETF 按收益率从差到好排名（0 = 最差，1 = 最好），然后看
+**排名高的 ETF 是不是真的吸引了更多资金**。
+
+- **X 轴**：这只 ETF 当月在所有 ETF 中的收益排名（0-1）
+- **Y 轴**：这只 ETF 当月的资金流入/流出（占 AUM 的百分比）
+- **红线**：把 X 轴分成 20 段后每段的平均值
+
+如果红线是**向上弯曲**的（右端陡峭上升），说明表现最好的那批 ETF 吸引了
+**不成比例的大量资金**——这就是 Sirri & Tufano (1998) 所说的"投资者追涨"。
 
 $$
-\text{Rank}_{i,t} = \frac{\text{position of } R_{i,t} \text{ among all ETFs at time } t}{N_t}
+\text{Rank}_{i,t} = \frac{\text{ETF } i \text{ 在 } t \text{ 月的收益排名}}{N_t}
 \in [0, 1]
 $$
-
-A **convex** (upward-curving) relationship = top performers attract disproportionate capital.
 """)
 
 scatter_f = RESULTS / "figure_st1_scatter.csv"
