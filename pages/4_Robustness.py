@@ -219,15 +219,16 @@ if f4_f.exists():
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=f4["window_end"], y=f4[beta_col] + 1.96 * f4[se_col],
-                mode="lines", line=dict(width=0), showlegend=False))
+                mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
             fig.add_trace(go.Scatter(
                 x=f4["window_end"], y=f4[beta_col] - 1.96 * f4[se_col],
                 mode="lines", line=dict(width=0), fill="tonexty",
-                fillcolor="rgba(31,119,180,0.2)", name="95% CI"))
+                fillcolor="rgba(31,119,180,0.2)", name="95% CI", hoverinfo="skip"))
             fig.add_trace(go.Scatter(
                 x=f4["window_end"], y=f4[beta_col],
                 mode="lines", line=dict(color="#1f77b4", width=2),
-                name=f"β({var})"))
+                name=f"β({var})",
+                hovertemplate="%{x|%Y-%m}<br>β=%{y:.2f}<extra></extra>"))
             fig.add_hline(y=0, line_dash="dash", line_color="gray")
             fig.update_layout(
                 height=350, xaxis_title="Window End Date",

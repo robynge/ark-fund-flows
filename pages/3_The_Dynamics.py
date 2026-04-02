@@ -42,17 +42,20 @@ if lp_f.exists():
     lp = pd.read_csv(lp_f)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["ci_upper"], mode="lines",
-                             line=dict(width=0), showlegend=False))
+                             line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["ci_lower"], mode="lines",
                              line=dict(width=0), fill="tonexty",
-                             fillcolor="rgba(31,119,180,0.2)", name="95% CI"))
+                             fillcolor="rgba(31,119,180,0.2)", name="95% CI",
+                             hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["beta"], mode="lines+markers",
                              line=dict(color="#1f77b4", width=2),
-                             marker=dict(size=4), name="β̂ₕ"))
+                             marker=dict(size=4), name="Point estimate",
+                             hovertemplate="h=%{x}<br>β=%{y:.2f}<extra></extra>"))
     sig = lp[lp["p_value"] < 0.05]
     if not sig.empty:
         fig.add_trace(go.Scatter(x=sig["horizon"], y=sig["beta"], mode="markers",
-                                 marker=dict(color="#d62728", size=6), name="p < 0.05"))
+                                 marker=dict(color="#d62728", size=6), name="p < 0.05",
+                                 hovertemplate="h=%{x}<br>β=%{y:.2f} (sig.)<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
     fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
                       yaxis_title="Response of Fund Flow ($M)",
@@ -85,22 +88,24 @@ if asym_f.exists():
     fig = go.Figure()
     # Positive shock
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_pos"],
-                             mode="lines", line=dict(width=0), showlegend=False))
+                             mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_pos"],
                              mode="lines", line=dict(width=0), fill="tonexty",
-                             fillcolor="rgba(31,119,180,0.15)", showlegend=False))
+                             fillcolor="rgba(31,119,180,0.15)", showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_pos"],
                              mode="lines+markers", line=dict(color="#1f77b4", width=2),
-                             marker=dict(size=4), name="Positive shock (chasing)"))
+                             marker=dict(size=4), name="Positive shock (chasing)",
+                             hovertemplate="h=%{x}<br>β⁺=%{y:.2f}<extra></extra>"))
     # Negative shock
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_neg"],
-                             mode="lines", line=dict(width=0), showlegend=False))
+                             mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_neg"],
                              mode="lines", line=dict(width=0), fill="tonexty",
-                             fillcolor="rgba(214,39,40,0.15)", showlegend=False))
+                             fillcolor="rgba(214,39,40,0.15)", showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_neg"],
                              mode="lines+markers", line=dict(color="#d62728", width=2),
-                             marker=dict(size=4), name="Negative shock (fleeing)"))
+                             marker=dict(size=4), name="Negative shock (fleeing)",
+                             hovertemplate="h=%{x}<br>β⁻=%{y:.2f}<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
     fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
                       yaxis_title="Response of Fund Flow ($M)",
@@ -125,14 +130,16 @@ if bull_f.exists() and bear_f.exists():
     for data, name, color in [(bull, "Bull (2020-2021)", "#1f77b4"),
                                (bear, "Bear (2022-2024)", "#d62728")]:
         fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_upper"],
-                                 mode="lines", line=dict(width=0), showlegend=False))
+                                 mode="lines", line=dict(width=0), showlegend=False,
+                                 hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_lower"],
                                  mode="lines", line=dict(width=0), fill="tonexty",
                                  fillcolor=f"rgba({','.join(str(int(color.lstrip('#')[i:i+2], 16)) for i in (0,2,4))},0.15)",
-                                 showlegend=False))
+                                 showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=data["horizon"], y=data["beta"],
                                  mode="lines+markers", line=dict(color=color, width=2),
-                                 marker=dict(size=4), name=name))
+                                 marker=dict(size=4), name=name,
+                                 hovertemplate="h=%{x}<br>β=%{y:.2f}<extra>" + name + "</extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
     fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
                       yaxis_title="Response of Fund Flow ($M)",

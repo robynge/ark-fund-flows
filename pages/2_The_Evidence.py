@@ -57,11 +57,13 @@ if scatter_f.exists():
     fig.add_trace(go.Scattergl(
         x=scatter["RANK"], y=scatter["Flow_Pct"],
         mode="markers", marker=dict(size=3, opacity=0.08, color="#1f77b4"),
-        name="Individual obs.", showlegend=True))
+        name="Individual obs.", showlegend=True,
+        hovertemplate="Rank: %{x:.2f}<br>Flow: %{y:.2f}%<extra></extra>"))
     fig.add_trace(go.Scatter(
         x=bin_means["rank_mid"], y=bin_means["flow_mean"],
         mode="lines+markers", line=dict(color="#d62728", width=3),
-        marker=dict(size=8), name="20-bin average"))
+        marker=dict(size=8), name="20-bin average",
+        hovertemplate="Bin avg rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
     fig.update_layout(
         height=450,

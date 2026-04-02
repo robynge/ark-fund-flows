@@ -103,7 +103,8 @@ if len(etf_data) > 30:
 
     fig_cc = go.Figure()
     colors = ["#2ca02c" if v > 0 else "#d62728" for v in cc["correlation"]]
-    fig_cc.add_trace(go.Bar(x=cc["lag"], y=cc["correlation"], marker_color=colors))
+    fig_cc.add_trace(go.Bar(x=cc["lag"], y=cc["correlation"], marker_color=colors,
+                            hovertemplate="Lag: %{x}<br>Corr: %{y:.4f}<extra></extra>"))
     fig_cc.add_hline(y=0, line_color="black", line_width=0.5)
     n_obs = len(etf_data[fc].dropna())
     se = 1.96 / np.sqrt(n_obs)
@@ -166,7 +167,8 @@ if len(etf_data) > 30:
         month_names = seas["Month_Name"].tolist()
         mean_vals = seas["Mean"].tolist()
         colors = ["#d62728" if m == "Jan" else "#1f77b4" for m in month_names]
-        fig_seas = go.Figure(go.Bar(x=month_names, y=mean_vals, marker_color=colors))
+        fig_seas = go.Figure(go.Bar(x=month_names, y=mean_vals, marker_color=colors,
+                                     hovertemplate="%{x}<br>Avg flow: %{y:.2f}<extra></extra>"))
         fig_seas.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_seas.update_layout(height=350, yaxis_title=flow_ylabel,
                                title=f"{selected_etf}: Average Flow by Calendar Month")

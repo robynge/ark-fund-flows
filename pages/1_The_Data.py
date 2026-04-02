@@ -124,10 +124,12 @@ if peer_etfs:
     fig_comp = go.Figure()
     fig_comp.add_trace(go.Scatter(
         x=ark_flows.index, y=ark_flows.rolling(20, min_periods=5).mean(),
-        name="ARK ETFs (20-period MA)", line=dict(color="#d62728", width=2)))
+        name="ARK ETFs (20-period MA)", line=dict(color="#d62728", width=2),
+        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}M<extra>ARK</extra>"))
     fig_comp.add_trace(go.Scatter(
         x=peer_flows.index, y=peer_flows.rolling(20, min_periods=5).mean(),
-        name="Peer ETFs (20-period MA)", line=dict(color="#1f77b4", width=2)))
+        name="Peer ETFs (20-period MA)", line=dict(color="#1f77b4", width=2),
+        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}M<extra>Peers</extra>"))
     fig_comp.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
     fig_comp.update_layout(
         height=400, yaxis_title="Average Fund Flow ($M)",
