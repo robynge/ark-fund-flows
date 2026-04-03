@@ -28,7 +28,7 @@ def apply_factor_A(df: pd.DataFrame, method: str = "exclude",
     """Factor A: Remove or dummy-flag ALL macro event windows.
 
     Treats all registered macro events (COVID, Ukraine war, Fed hikes,
-    banking crisis, ARKB approval, etc.) as a single noise factor.
+    banking crisis, Bitcoin ETF approval, etc.) as a single noise factor.
     Individual event impact analysis is a separate investigation,
     not a noise factor toggle.
 

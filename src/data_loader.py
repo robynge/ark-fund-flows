@@ -12,7 +12,7 @@ DATA_DIR = Path(__file__).parent.parent / "data" / "input"
 EXCEL_PATH = DATA_DIR / "ARK ETF Fund Flows.xlsx"
 ARK_AUM_PATH = DATA_DIR / "ARK ETF AUM.xlsx"
 
-ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"]
+ETF_NAMES = ["ARKK", "ARKF", "ARKG", "ARKX", "ARKQ", "ARKW"]
 
 _BBG_TICKER_RE = re.compile(r"^(\w+)\s+US\s+Equity")
 

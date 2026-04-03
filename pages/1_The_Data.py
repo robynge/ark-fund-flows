@@ -23,8 +23,8 @@ OHLCV prices, and monthly AUM from **2014 to 2026**.
 # --- Sidebar ---
 ETF_NAMES_DISPLAY = {
     "ARKK": "ARK Innovation", "ARKF": "ARK Fintech", "ARKG": "ARK Genomic",
-    "ARKX": "ARK Space & Defense", "ARKB": "ARK Bitcoin", "ARKQ": "ARK Autonomous Tech",
-    "ARKW": "ARK Next Gen Internet", "PRNT": "3D Printing", "IZRL": "ARK Israel",
+    "ARKX": "ARK Space & Defense", "ARKQ": "ARK Autonomous Tech",
+    "ARKW": "ARK Next Gen Internet",
 }
 
 with st.sidebar:

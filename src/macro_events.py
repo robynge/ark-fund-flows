@@ -41,7 +41,7 @@ EVENTS = [
         "name": "Spot Bitcoin ETF Approval",
         "start": "2024-01-10",
         "end": "2024-02-28",
-        "description": "SEC approves spot Bitcoin ETFs; massive inflows to ARKB and peers",
+        "description": "SEC approves spot Bitcoin ETFs; massive inflows to Bitcoin ETFs",
     },
 ]
 

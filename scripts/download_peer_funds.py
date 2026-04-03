@@ -15,7 +15,7 @@ import time
 
 TECH_PEERS_PATH = Path(__file__).parent.parent / "data" / "input" / "Tech Peers.xlsx"
 OUTPUT_PATH = Path(__file__).parent.parent / "data" / "input" / "Peer Fund Flows.xlsx"
-ARK_TICKERS = {"ARKK", "ARKF", "ARKG", "ARKX", "ARKB", "ARKQ", "ARKW", "PRNT", "IZRL"}
+ARK_TICKERS = {"ARKK", "ARKF", "ARKG", "ARKX", "ARKQ", "ARKW"}
 
 
 def read_peer_tickers_and_flows() -> tuple[list[str], dict[str, pd.Series]]:

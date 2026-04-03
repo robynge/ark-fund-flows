@@ -28,8 +28,8 @@ Use the sidebar to select an ETF, frequency, and time range.
 # --- Sidebar ---
 ETF_FULL_NAMES = {
     "ARKK": "ARK Innovation", "ARKF": "ARK Fintech", "ARKG": "ARK Genomic",
-    "ARKX": "ARK Space & Defense", "ARKB": "ARK Bitcoin", "ARKQ": "ARK Autonomous Tech",
-    "ARKW": "ARK Next Gen Internet", "PRNT": "3D Printing", "IZRL": "ARK Israel",
+    "ARKX": "ARK Space & Defense", "ARKQ": "ARK Autonomous Tech",
+    "ARKW": "ARK Next Gen Internet",
 }
 
 with st.sidebar:
