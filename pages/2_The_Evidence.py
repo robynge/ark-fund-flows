@@ -29,19 +29,20 @@ def _stars(p):
 # ============================================================
 st.header("1. Do Top Performers Attract More Money?")
 st.markdown(r"""
-Each month, we rank all ETFs by return (0 = worst, 1 = best) and ask:
-**do higher-ranked ETFs actually attract more capital?**
+Each month, we rank all ETFs by return and convert the rank to a **fractional
+percentile** between 0 and 1 (following Sirri & Tufano 1998). For example,
+a rank of **0.21** means this ETF's return was at the 21st percentile that month
+(better than 21% of ETFs). A rank of **0.95** means it was near the top.
 
-- **X-axis**: the ETF's return rank among all ETFs that month (0 to 1)
-- **Y-axis**: the ETF's net fund flow that month (as % of AUM)
+- **X-axis**: fractional performance rank (0.0 = worst return, 1.0 = best return)
+- **Y-axis**: net fund flow that month (as % of AUM)
 - **Red line**: average flow within each of 20 equal-width rank bins
 
-If the red line **curves upward** (steep rise at the right end), it means
-top performers attract **disproportionately more capital** — the hallmark of
-performance chasing documented by Sirri & Tufano (1998).
+If the red line **curves upward** at the right end, top performers attract
+**disproportionately more capital** — the hallmark of performance chasing.
 
 $$
-\text{Rank}_{i,t} = \frac{\text{position of } R_{i,t} \text{ among all ETFs at time } t}{N_t}
+\text{Rank}_{i,t} = \frac{\text{position of ETF } i \text{'s return among all ETFs at time } t}{N_t}
 \in [0, 1]
 $$
 """)
@@ -68,7 +69,7 @@ if scatter_f.exists():
         x=bin_means["rank_mid"], y=bin_means["flow_mean"],
         mode="lines+markers", line=dict(color="#d62728", width=3),
         marker=dict(size=8), name="20-bin average",
-        hovertemplate="Bin avg rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
+        hovertemplate="Rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
     fig.update_layout(
         height=450,
