@@ -62,7 +62,7 @@ if scatter_f.exists():
     fig = go.Figure()
     fig.add_trace(go.Scattergl(
         x=scatter_clean["RANK"], y=scatter_clean["Flow_Pct"],
-        mode="markers", marker=dict(size=3, opacity=0.08, color="#1f77b4"),
+        mode="markers", marker=dict(size=4, opacity=0.35, color="#1f77b4"),
         name="Individual obs.", showlegend=True,
         hovertemplate="Rank: %{x:.2f}<br>Flow: %{y:.2f}%<extra></extra>"))
     fig.add_trace(go.Scatter(
