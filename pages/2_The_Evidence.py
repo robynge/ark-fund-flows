@@ -13,6 +13,11 @@ st.markdown("""
 We present evidence at three levels: **(1)** visual evidence from the S&T scatter,
 **(2)** the classic S&T piecewise regression, and **(3)** our daily panel specification.
 All three point the same way: **yes, ETF investors chase past performance.**
+
+> **Reading the tables**: Stars next to coefficients indicate statistical significance.
+> **\*\*\*** = p < 0.01 (very strong), **\*\*** = p < 0.05 (strong), **\*** = p < 0.10 (moderate),
+> no stars = not statistically significant. In plain terms: more stars = more confident
+> the result is real, not due to random chance.
 """)
 
 

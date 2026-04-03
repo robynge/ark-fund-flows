@@ -11,6 +11,9 @@ st.set_page_config(page_title="Robustness", layout="wide")
 st.title("Robustness: Should We Believe This?")
 st.markdown("""
 We address the questions a journal referee would ask, each with a dedicated test.
+
+> **Reading the tables**: **\*\*\*** = p < 0.01, **\*\*** = p < 0.05, **\*** = p < 0.10.
+> More stars = stronger statistical evidence that the result is not due to chance.
 """)
 
 
