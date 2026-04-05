@@ -66,17 +66,10 @@ if lp_f.exists():
 # ============================================================
 # 2. Asymmetric Response
 # ============================================================
-st.header("2. Chasing vs. Fleeing: Do Gains and Losses Have Different Effects?")
+st.header("2. Do Investors React Differently to Gains vs. Losses?")
 st.markdown(r"""
-Sirri & Tufano (1998) showed that in the **cross-section**, top-ranked funds
-attract disproportionate inflows while bottom-ranked funds do not lose
-proportionate capital (Table 2 above replicates this). Here we ask a
-**different but related question** using our daily data: does a positive
-return shock propagate differently through fund flows than a negative one?
-
-This is our **extension beyond S&T** — their annual data could not track
-dynamic responses. We decompose the return into positive and negative
-components and estimate separate impulse responses for each:
+We split each day's return into a positive part and a negative part, then
+track how fund flows respond to each over the next 40 trading days:
 
 $$
 \text{Flow}_{i,t+h} = \alpha_i^{(h)}
@@ -85,11 +78,8 @@ $$
 + \varepsilon_{i,t+h}
 $$
 
-- **Blue line**: flow response over 40 days following a **+1% return** (gain chasing)
-- **Red line**: flow response over 40 days following a **-1% return** (loss fleeing)
-
-If the two lines have different shapes or magnitudes, investors react
-**asymmetrically** to gains vs. losses over time.
+- **Blue line**: how fund flows change over 40 days after a **+1% daily gain**
+- **Red line**: how fund flows change over 40 days after a **-1% daily loss**
 """)
 
 asym_f = RESULTS / "figure_2_asymmetric_lp.csv"
