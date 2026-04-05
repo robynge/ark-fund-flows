@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import sys; from pathlib import Path; sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from _shared import (sidebar_freq, sidebar_etf, load_data, get_cols,
                       ETF_NAMES, FREQ_LABELS)
 

@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import statsmodels.api as sm
+import sys; from pathlib import Path; sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from _shared import (sidebar_freq, load_data_with_controls, get_cols,
                       get_cumret_windows, cumret_cols, build_cumret,
                       stars, ETF_NAMES, FREQ_LABELS)

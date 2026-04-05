@@ -5,11 +5,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_ROOT / "src"))
 from data_loader import get_prepared_data_with_peers, ETF_NAMES
 
 # Also make new_runner helpers importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "experiments"))
+sys.path.insert(0, str(_ROOT / "experiments"))
 
 FREQ_OPTIONS = {"D": "Daily", "W": "Weekly", "ME": "Monthly"}
 FREQ_LABELS = {"D": "days", "W": "weeks", "ME": "months"}
