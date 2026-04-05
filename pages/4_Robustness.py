@@ -156,9 +156,9 @@ st.header("Q3: Is ARKK Driving the Results?")
 @st.cache_data(show_spinner="Running leave-one-out...")
 def compute_loo(freq):
     _ark = get_ark_data(freq)
-    _fc = get_cols(freq)[0]
+    _fc, _rc = get_cols(freq)
     _x = cumret_cols(get_cumret_windows(freq))
-    return leave_one_etf_out(_ark, _fc, _x)
+    return leave_one_etf_out(_ark, _fc, _rc, _x)
 
 loo = compute_loo(freq)
 if not loo.empty:
