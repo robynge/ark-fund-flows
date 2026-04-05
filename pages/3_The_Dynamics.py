@@ -66,11 +66,17 @@ if lp_f.exists():
 # ============================================================
 # 2. Asymmetric Response
 # ============================================================
-st.header("2. Chasing vs. Fleeing: Asymmetric Response")
+st.header("2. Chasing vs. Fleeing: Do Gains and Losses Have Different Effects?")
 st.markdown(r"""
-A central prediction of Sirri & Tufano is **asymmetry**: investors chase
-winners more aggressively than they punish losers. We decompose the return
-shock into positive and negative components:
+Sirri & Tufano (1998) showed that in the **cross-section**, top-ranked funds
+attract disproportionate inflows while bottom-ranked funds do not lose
+proportionate capital (Table 2 above replicates this). Here we ask a
+**different but related question** using our daily data: does a positive
+return shock propagate differently through fund flows than a negative one?
+
+This is our **extension beyond S&T** — their annual data could not track
+dynamic responses. We decompose the return into positive and negative
+components and estimate separate impulse responses for each:
 
 $$
 \text{Flow}_{i,t+h} = \alpha_i^{(h)}
@@ -79,10 +85,11 @@ $$
 + \varepsilon_{i,t+h}
 $$
 
-The blue line shows the flow response to a **+1% return shock** (gain chasing).
-The red line shows the flow response to a **-1% return shock** (loss fleeing).
-If the blue line is higher than the red line in absolute terms, investors
-**chase gains more aggressively than they flee losses**.
+- **Blue line**: flow response over 40 days following a **+1% return** (gain chasing)
+- **Red line**: flow response over 40 days following a **-1% return** (loss fleeing)
+
+If the two lines have different shapes or magnitudes, investors react
+**asymmetrically** to gains vs. losses over time.
 """)
 
 asym_f = RESULTS / "figure_2_asymmetric_lp.csv"
