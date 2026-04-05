@@ -4,62 +4,68 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-RESULTS = Path(__file__).parent.parent / "experiments" / "results_v2"
+from _shared import (sidebar_freq, sidebar_etf, load_data, get_cols,
+                      get_lp_horizon, ETF_NAMES, FREQ_LABELS)
 
 st.set_page_config(page_title="The Dynamics", layout="wide")
 st.title("The Dynamics: How Do Investors Chase?")
-st.markdown("""
-Sirri & Tufano (1998) established *that* investors chase performance using annual data.
-Our **daily** data lets us answer a richer set of questions: **How quickly** does the
-effect build? **How long** does it last? Is **chasing gains** stronger than **fleeing losses**?
-Does the pattern change in **bull vs. bear** markets? What happens after **crashes**?
-""")
+
+freq = sidebar_freq(key="dynamics_freq")
+fc, rc = get_cols(freq)
+period = FREQ_LABELS[freq]
+horizon = get_lp_horizon(freq)
+
+df = load_data(freq)
+df = df[df["Date"] >= pd.Timestamp("2014-10-31")]
+
+from local_projection import (local_projection, local_projection_asymmetric,
+                               local_projection_subsample)
+from analysis import compute_etf_drawdowns, drawdown_flow_analysis, drawdown_flow_regression
 
 # ============================================================
 # 1. Impulse Response
 # ============================================================
 st.header("1. Impulse Response: How the Effect Unfolds")
-st.markdown(r"""
-Using **Local Projection** (Jordà, 2005), we estimate the response of fund flows
-to a return shock at each horizon $h = 0, 1, \ldots, 40$ trading days:
+st.markdown(rf"""
+At each horizon $h = 0, 1, \ldots, {horizon}$ {period}, we estimate:
 
 $$
-\text{Flow}_{i,t+h} = \alpha_i^{(h)} + \beta_h \cdot \text{Return}_{i,t}
-+ \gamma_h' X_{i,t} + \varepsilon_{i,t+h}
+\text{{Flow}}_{{i,t+h}} = \alpha_i^{{(h)}} + \beta_h \cdot \text{{Return}}_{{i,t}} + \varepsilon
 $$
 
-The sequence $\{\hat\beta_h\}$ traces the **impulse response function** — how a
-one-unit return shock propagates through fund flows over 40 trading days.
+The sequence $\{{\hat\beta_h\}}$ shows how a return shock propagates through fund flows.
 """)
 
-lp_f = RESULTS / "figure_1_lp.csv"
-if lp_f.exists():
-    lp = pd.read_csv(lp_f)
+@st.cache_data(show_spinner="Computing impulse response...")
+def compute_lp(freq):
+    _df = load_data(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark[_fc])]
+    return local_projection(ark, _fc, _rc, max_horizon=get_lp_horizon(freq))
+
+lp = compute_lp(freq)
+if not lp.empty:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["ci_upper"], mode="lines",
                              line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["ci_lower"], mode="lines",
                              line=dict(width=0), fill="tonexty",
-                             fillcolor="rgba(31,119,180,0.2)", name="95% CI",
-                             hoverinfo="skip"))
+                             fillcolor="rgba(31,119,180,0.2)", name="95% CI", hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=lp["horizon"], y=lp["beta"], mode="lines+markers",
-                             line=dict(color="#1f77b4", width=2),
-                             marker=dict(size=4), name="Point estimate",
-                             hovertemplate="h=%{x}<br>β=%{y:.2f}<extra></extra>"))
+                             line=dict(color="#1f77b4", width=2), marker=dict(size=4),
+                             name="Point estimate",
+                             hovertemplate=f"h=%{{x}} {period}<br>β=%{{y:.2f}}<extra></extra>"))
     sig = lp[lp["p_value"] < 0.05]
     if not sig.empty:
         fig.add_trace(go.Scatter(x=sig["horizon"], y=sig["beta"], mode="markers",
                                  marker=dict(color="#d62728", size=6), name="p < 0.05",
-                                 hovertemplate="h=%{x}<br>β=%{y:.2f} (sig.)<extra></extra>"))
+                                 hovertemplate=f"h=%{{x}} {period}<br>β=%{{y:.2f}} (sig.)<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
-    fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
+    fig.update_layout(height=450, xaxis_title=f"Horizon ({period})",
                       yaxis_title="Response of Fund Flow ($M)",
-                      title="Impulse Response: Return Shock → Fund Flow",
+                      title=f"Impulse Response: Return Shock → Fund Flow ({period})",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, width="stretch")
 
@@ -67,34 +73,36 @@ if lp_f.exists():
 # 2. Asymmetric Response
 # ============================================================
 st.header("2. Do Investors React Differently to Gains vs. Losses?")
-st.markdown(r"""
-We split each day's return into a positive part and a negative part, then
-track how fund flows respond to each over the next 40 trading days:
+st.markdown(rf"""
+We split each {period[:-1]}'s return into a positive part and a negative part,
+then track how fund flows respond to each over {horizon} {period}:
 
 $$
-\text{Flow}_{i,t+h} = \alpha_i^{(h)}
-+ \beta_h^{+} \cdot \max(R_{i,t}, 0)
-+ \beta_h^{-} \cdot \min(R_{i,t}, 0)
-+ \varepsilon_{i,t+h}
+\text{{Flow}}_{{i,t+h}} = \alpha_i^{{(h)}} + \beta_h^+ \cdot \max(R_{{i,t}}, 0)
++ \beta_h^- \cdot \min(R_{{i,t}}, 0) + \varepsilon
 $$
 
-- **Blue line**: how fund flows change over 40 days after a **+1% daily gain**
-- **Red line**: how fund flows change over 40 days after a **-1% daily loss**
+- **Blue**: flow response after a **+1% gain**
+- **Red**: flow response after a **-1% loss**
 """)
 
-asym_f = RESULTS / "figure_2_asymmetric_lp.csv"
-if asym_f.exists():
-    asym = pd.read_csv(asym_f)
+@st.cache_data(show_spinner="Computing asymmetric LP...")
+def compute_asym(freq):
+    _df = load_data(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark[_fc])]
+    return local_projection_asymmetric(ark, _fc, _rc, max_horizon=get_lp_horizon(freq))
 
-    # beta_neg is the coefficient on min(Return, 0) which is NEGATIVE.
-    # To show the marginal effect of a 1% LOSS, we negate beta_neg and its CIs.
-    # This way: positive red line = outflows after losses, which is intuitive.
+asym = compute_asym(freq)
+if not asym.empty:
     asym["beta_neg_plot"] = -asym["beta_neg"]
-    asym["ci_lower_neg_plot"] = -asym["ci_upper_neg"]  # flip bounds when negating
+    asym["ci_lower_neg_plot"] = -asym["ci_upper_neg"]
     asym["ci_upper_neg_plot"] = -asym["ci_lower_neg"]
 
     fig = go.Figure()
-    # Positive shock (chasing): effect of +1% gain
+    # Positive
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_pos"],
                              mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_pos"],
@@ -102,9 +110,9 @@ if asym_f.exists():
                              fillcolor="rgba(31,119,180,0.15)", showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_pos"],
                              mode="lines+markers", line=dict(color="#1f77b4", width=2),
-                             marker=dict(size=4), name="+1% gain → flow response",
-                             hovertemplate="h=%{x}<br>Flow response: %{y:.1f}M<extra></extra>"))
-    # Negative shock (fleeing): marginal effect of -1% loss (negated for intuitive display)
+                             marker=dict(size=4), name="+1% gain → flow",
+                             hovertemplate=f"h=%{{x}} {period}<br>Flow: %{{y:.1f}}M<extra></extra>"))
+    # Negative (negated)
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_neg_plot"],
                              mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_neg_plot"],
@@ -112,12 +120,12 @@ if asym_f.exists():
                              fillcolor="rgba(214,39,40,0.15)", showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_neg_plot"],
                              mode="lines+markers", line=dict(color="#d62728", width=2),
-                             marker=dict(size=4), name="-1% loss → flow response",
-                             hovertemplate="h=%{x}<br>Flow response: %{y:.1f}M<extra></extra>"))
+                             marker=dict(size=4), name="-1% loss → flow",
+                             hovertemplate=f"h=%{{x}} {period}<br>Flow: %{{y:.1f}}M<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
-    fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
+    fig.update_layout(height=450, xaxis_title=f"Horizon ({period})",
                       yaxis_title="Response of Fund Flow ($M)",
-                      title="Asymmetric Impulse Response",
+                      title="Asymmetric Response: Gains vs. Losses",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, width="stretch")
 
@@ -125,85 +133,72 @@ if asym_f.exists():
 # 3. Bull vs Bear
 # ============================================================
 st.header("3. Market Regime: Bull vs. Bear")
-st.markdown("""
-Does performance chasing intensify or weaken during market stress? We split the
-sample into **bull** (2020-2021, pandemic rally) and **bear** (2022-2024, rate hikes
-and tech selloff) regimes and re-estimate the impulse response.
-""")
 
-bull_f, bear_f = RESULTS / "table_4_lp_bull.csv", RESULTS / "table_4_lp_bear.csv"
-if bull_f.exists() and bear_f.exists():
-    bull, bear = pd.read_csv(bull_f), pd.read_csv(bear_f)
+@st.cache_data(show_spinner="Computing subsample LP...")
+def compute_subsample(freq):
+    _df = load_data(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark[_fc])]
+    h = get_lp_horizon(freq)
+    periods = {"bull": ("2020-01-01", "2021-12-31"), "bear": ("2022-01-01", "2024-12-31")}
+    result = {}
+    for name, (start, end) in periods.items():
+        sub = ark[(ark["Date"] >= start) & (ark["Date"] <= end)]
+        if len(sub) > 50:
+            result[name] = local_projection(sub, _fc, _rc, max_horizon=min(h, 30))
+    return result
+
+subs = compute_subsample(freq)
+if subs:
     fig = go.Figure()
-    for data, name, color in [(bull, "Bull (2020-2021)", "#1f77b4"),
-                               (bear, "Bear (2022-2024)", "#d62728")]:
-        fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_upper"],
-                                 mode="lines", line=dict(width=0), showlegend=False,
-                                 hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_lower"],
-                                 mode="lines", line=dict(width=0), fill="tonexty",
-                                 fillcolor=f"rgba({','.join(str(int(color.lstrip('#')[i:i+2], 16)) for i in (0,2,4))},0.15)",
+    colors = {"bull": "#1f77b4", "bear": "#d62728"}
+    labels = {"bull": "Bull (2020-2021)", "bear": "Bear (2022-2024)"}
+    for name, data in subs.items():
+        if data.empty:
+            continue
+        c = colors[name]
+        fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_upper"], mode="lines",
+                                 line=dict(width=0), showlegend=False, hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=data["horizon"], y=data["ci_lower"], mode="lines",
+                                 line=dict(width=0), fill="tonexty",
+                                 fillcolor=f"rgba({','.join(str(int(c.lstrip('#')[i:i+2], 16)) for i in (0,2,4))},0.15)",
                                  showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=data["horizon"], y=data["beta"],
-                                 mode="lines+markers", line=dict(color=color, width=2),
-                                 marker=dict(size=4), name=name,
-                                 hovertemplate="h=%{x}<br>β=%{y:.2f}<extra>" + name + "</extra>"))
+                                 mode="lines+markers", line=dict(color=c, width=2),
+                                 marker=dict(size=4), name=labels[name],
+                                 hovertemplate=f"h=%{{x}}<br>β=%{{y:.2f}}<extra>{labels[name]}</extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
-    fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
+    fig.update_layout(height=450, xaxis_title=f"Horizon ({period})",
                       yaxis_title="Response of Fund Flow ($M)",
                       title="Performance Chasing by Market Regime",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, width="stretch")
 
-sub_f = RESULTS / "table_4_subsample.csv"
-if sub_f.exists():
-    st.dataframe(pd.read_csv(sub_f), width="stretch", hide_index=True)
-
 # ============================================================
 # 4. Drawdown Event Study
 # ============================================================
-st.header("4. Extreme Events: What Happens After Crashes?")
-st.markdown(r"""
-The S&T asymmetry prediction has a sharp implication for extreme events: if
-investors don't flee poor performers, do they **stay** even after large price
-crashes? We identify **drawdown episodes** ($\geq 10\%$ peak-to-trough) and
-measure cumulative fund flows in the months that follow:
+st.header("4. What Happens After Crashes?")
 
-$$
-\text{CumFlow}_{i,[t, t+h]} = \alpha + \beta_1 \cdot \text{DrawdownDepth}_i
-+ \beta_2 \cdot \text{Duration}_i + \varepsilon
-$$
-
-- $\beta_1 < 0$: deeper drawdowns → larger outflows (panic selling)
-- $\beta_1 \approx 0$: investors don't respond to drawdown severity
-- $\beta_1 > 0$: contrarian buying after steep declines
-""")
-
-# Load data for drawdown computation
-from data_loader import get_prepared_data_with_peers, ETF_NAMES as ETF_LIST
-from analysis import compute_etf_drawdowns, drawdown_flow_analysis, drawdown_flow_regression
-
-with st.sidebar:
-    dd_etf = st.selectbox("Drawdown ETF", ETF_LIST, index=0, key="dd_etf")
-
+dd_etf = sidebar_etf(key="dd_etf")
 
 @st.cache_data(show_spinner="Computing drawdowns...")
-def get_drawdown_data():
-    df = get_prepared_data_with_peers(freq="ME", zscore_type="full", benchmark="SPY")
-    df = df[df["Date"] >= pd.Timestamp("2014-10-31")]
-    dd = compute_etf_drawdowns(df, "Return_Cum", min_depth_pct=10.0)
-    dd_flow = drawdown_flow_analysis(df, dd, "Flow_Sum") if len(dd) > 0 else pd.DataFrame()
-    return df, dd, dd_flow
+def compute_dd(freq):
+    _df = load_data(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    dd = compute_etf_drawdowns(_df, _rc, min_depth_pct=10.0)
+    dd_flow = drawdown_flow_analysis(_df, dd, _fc) if len(dd) > 0 else pd.DataFrame()
+    return _df, dd, dd_flow
 
-
-df_dd, dd_all, dd_flow = get_drawdown_data()
+df_dd, dd_all, dd_flow = compute_dd(freq)
 
 if len(dd_all) > 0:
-    # Price index with drawdown shading
     etf_dd = dd_all[dd_all["ETF"] == dd_etf]
     etf_prices = df_dd[df_dd["ETF"] == dd_etf].sort_values("Date")
     if len(etf_prices) > 10:
-        price_idx = (1 + etf_prices.set_index("Date")["Return_Cum"].dropna()).cumprod() * 100
+        price_idx = (1 + etf_prices.set_index("Date")[rc].dropna()).cumprod() * 100
         fig_dd = go.Figure()
         fig_dd.add_trace(go.Scatter(x=price_idx.index, y=price_idx.values,
                                     mode="lines", name="Price Index",
@@ -214,31 +209,16 @@ if len(dd_all) > 0:
                              annotation_text=f"{row['depth_pct']:.0f}%",
                              annotation_position="top left", annotation_font_size=9)
         fig_dd.update_layout(height=400, yaxis_title="Price Index (base=100)",
-                             title=f"{dd_etf}: Drawdown Episodes (≥10%)")
+                             title=f"{dd_etf}: Drawdown Episodes (>=10%)")
         st.plotly_chart(fig_dd, width="stretch")
 
-    # Scatter plots
     if len(dd_flow) > 0:
-        col1, col2 = st.columns(2)
-        for col, horizon, label in [(col1, "CumFlow_1m", "1-Month"),
-                                     (col2, "CumFlow_3m", "3-Month")]:
-            if horizon in dd_flow.columns:
-                with col:
-                    fig_s = px.scatter(dd_flow, x="depth_pct", y=horizon,
-                                       color="ETF", title=f"Depth vs {label} Flow",
-                                       hover_data=["trough_date"])
-                    fig_s.update_layout(height=350, showlegend=False,
-                                        xaxis_title="Drawdown Depth (%)",
-                                        yaxis_title=f"Cumulative Flow {label} ($M)")
-                    st.plotly_chart(fig_s, width="stretch")
-
-        # Regression table
         dd_reg = drawdown_flow_regression(dd_flow)
         if len(dd_reg) > 0:
             st.subheader("Post-Drawdown Flow Regression")
             st.dataframe(dd_reg.style.format({
                 "β_Depth": "{:.4f}", "β_Depth_p": "{:.4f}",
-                "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}", "R²": "{:.4f}",
-            }), hide_index=True, width="stretch")
+                "β_Duration": "{:.4f}", "β_Duration_p": "{:.4f}", "R²": "{:.4f}"}),
+                hide_index=True, width="stretch")
 
-st.info("**Next →** *Robustness*: Are these findings reliable? We test with 7 different validation methods.")
+st.info("**Next** → *Robustness*: Are these findings reliable?")

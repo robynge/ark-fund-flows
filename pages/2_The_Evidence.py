@@ -1,74 +1,67 @@
-"""Page 2: The Evidence — S&T scatter, piecewise regression, panel specification."""
+"""Page 2: The Evidence — S&T scatter, piecewise + quadratic regression, panel spec."""
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from pathlib import Path
-
-RESULTS = Path(__file__).parent.parent / "experiments" / "results_v2"
+import statsmodels.api as sm
+from _shared import (sidebar_freq, load_data_with_controls, get_cols,
+                      get_cumret_windows, cumret_cols, build_cumret,
+                      stars, ETF_NAMES, FREQ_LABELS)
 
 st.set_page_config(page_title="The Evidence", layout="wide")
 st.title("The Evidence: Do Investors Chase?")
 st.markdown("""
-We present evidence at three levels: **(1)** visual evidence from the S&T scatter,
-**(2)** the classic S&T piecewise regression, and **(3)** our daily panel specification.
-All three point the same way: **yes, ETF investors chase past performance.**
+We present evidence at three levels: **(1)** visual, **(2)** the classic S&T
+piecewise regression, and **(3)** our panel specification with cumulative return windows.
 
-> **Reading the tables**: Stars next to coefficients indicate statistical significance.
-> **\*\*\*** = p < 0.01 (very strong), **\*\*** = p < 0.05 (strong), **\*** = p < 0.10 (moderate),
-> no stars = not statistically significant. In plain terms: more stars = more confident
-> the result is real, not due to random chance.
+> **Reading the tables**: **\\*\\*\\*** = p < 0.01 (very strong), **\\*\\*** = p < 0.05,
+> **\\*** = p < 0.10, no stars = not significant. More stars = more confident the result is real.
 """)
 
+freq = sidebar_freq(key="evidence_freq")
+fc, rc = get_cols(freq)
+windows = get_cumret_windows(freq)
+period = FREQ_LABELS[freq]
 
-def _stars(p):
-    if pd.isna(p): return ""
-    if p < 0.01: return "***"
-    if p < 0.05: return "**"
-    if p < 0.10: return "*"
-    return ""
+df = load_data_with_controls(freq)
+df = df[df["Date"] >= pd.Timestamp("2014-10-31")]
 
 
 # ============================================================
-# 1. S&T Scatter (moved from old Data Overview)
+# 1. S&T Scatter
 # ============================================================
 st.header("1. Do Top Performers Attract More Money?")
-st.markdown(r"""
-Each month, we rank all ETFs by return and convert the rank to a **fractional
-percentile** between 0 and 1 (following Sirri & Tufano 1998). For example,
-a rank of **0.21** means this ETF's return was at the 21st percentile that month
-(better than 21% of ETFs). A rank of **0.95** means it was near the top.
-
-- **X-axis**: fractional performance rank (0.0 = worst return, 1.0 = best return)
-- **Y-axis**: net fund flow that month (as % of AUM)
-- **Red line**: average flow within each of 20 equal-width rank bins
-
-If the red line **curves upward** at the right end, top performers attract
-**disproportionately more capital** — the hallmark of performance chasing.
-
-$$
-\text{Rank}_{i,t} = \frac{\text{position of ETF } i \text{'s return among all ETFs at time } t}{N_t}
-\in [0, 1]
-$$
+st.markdown(f"""
+Each {period[:-1]}, we rank all ETFs by return and plot rank vs. fund flow.
+Rank 0 = worst, 1 = best. The red line shows 20-bin averages.
+An **upward curve** at the right = top performers attract disproportionate capital.
 """)
 
-scatter_f = RESULTS / "figure_st1_scatter.csv"
-if scatter_f.exists():
-    scatter = pd.read_csv(scatter_f)
+from sirri_tufano import compute_fractional_rank
 
-    # Filter extreme outliers (ETF inception months where Flow/AUM > 100%)
-    p1, p99 = scatter["Flow_Pct"].quantile(0.01), scatter["Flow_Pct"].quantile(0.99)
-    scatter_clean = scatter[(scatter["Flow_Pct"] >= p1) & (scatter["Flow_Pct"] <= p99)]
+@st.cache_data(show_spinner="Computing ranks...")
+def compute_scatter(freq):
+    _df = load_data_with_controls(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    ranked = compute_fractional_rank(_df, return_col=_rc)
+    if "Flow_Pct" not in ranked.columns:
+        ranked["Flow_Pct"] = ranked[_fc]
+    out = ranked[["ETF", "Date", "RANK", "Flow_Pct"]].dropna()
+    p1, p99 = out["Flow_Pct"].quantile(0.01), out["Flow_Pct"].quantile(0.99)
+    return out[(out["Flow_Pct"] >= p1) & (out["Flow_Pct"] <= p99)].copy()
 
-    scatter_clean["rank_bin"] = pd.cut(scatter_clean["RANK"], bins=20, labels=False) + 1
-    bin_means = scatter_clean.groupby("rank_bin").agg(
+scatter = compute_scatter(freq)
+if not scatter.empty:
+    scatter["rank_bin"] = pd.cut(scatter["RANK"], bins=20, labels=False) + 1
+    bin_means = scatter.groupby("rank_bin").agg(
         rank_mid=("RANK", "mean"), flow_mean=("Flow_Pct", "mean")).dropna()
 
     fig = go.Figure()
     fig.add_trace(go.Scattergl(
-        x=scatter_clean["RANK"], y=scatter_clean["Flow_Pct"],
+        x=scatter["RANK"], y=scatter["Flow_Pct"],
         mode="markers", marker=dict(size=4, opacity=0.35, color="#1f77b4"),
-        name="Individual obs.", showlegend=True,
+        name="Individual obs.",
         hovertemplate="Rank: %{x:.2f}<br>Flow: %{y:.2f}%<extra></extra>"))
     fig.add_trace(go.Scatter(
         x=bin_means["rank_mid"], y=bin_means["flow_mean"],
@@ -76,223 +69,226 @@ if scatter_f.exists():
         marker=dict(size=8), name="20-bin average",
         hovertemplate="Rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-    fig.update_layout(
-        height=450,
+    fig.update_layout(height=450,
         xaxis_title="Performance Rank (0 = worst, 1 = best)",
         yaxis_title="Fund Flow (% of AUM)",
-        title="Sirri-Tufano Replication: Performance Rank vs. Flow Growth (Monthly)",
+        title=f"Performance Rank vs. Flow Growth ({FREQ_LABELS[freq].title()})",
         legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, width="stretch")
 
-    # Line-only version (professor requested for presentations)
-    with st.expander("Show line-only version (no individual points)"):
+    with st.expander("Line-only version (for presentations)"):
         fig_line = go.Figure()
         fig_line.add_trace(go.Scatter(
             x=bin_means["rank_mid"], y=bin_means["flow_mean"],
             mode="lines+markers", line=dict(color="#d62728", width=3),
-            marker=dict(size=8), name="20-bin average",
+            marker=dict(size=8),
             hovertemplate="Rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
         fig_line.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-        fig_line.update_layout(
-            height=400,
+        fig_line.update_layout(height=400,
             xaxis_title="Performance Rank (0 = worst, 1 = best)",
-            yaxis_title="Fund Flow (% of AUM)",
-            title="Performance Rank vs. Fund Flow (Bin Averages Only)")
+            yaxis_title="Fund Flow (% of AUM)")
         st.plotly_chart(fig_line, width="stretch")
 
+
 # ============================================================
-# 2. S&T Piecewise Linear Regression (Table 2)
+# 2. S&T Piecewise Linear Regression
 # ============================================================
 st.header("2. S&T Piecewise Linear Regression")
 st.markdown(r"""
-We formalize the scatter pattern with the **Sirri & Tufano piecewise linear model**,
-decomposing performance rank into three segments:
-
 $$
-\text{Flow}_{i,t} = \alpha_i
-+ \beta_L \cdot \text{LOWPERF}_{i,t-1}
-+ \beta_M \cdot \text{MIDPERF}_{i,t-1}
-+ \beta_H \cdot \text{HIGHPERF}_{i,t-1}
-+ \gamma' Z + \varepsilon_{i,t}
+\text{Flow}_{i,t} = \alpha_i + \beta_L \cdot \text{LOWPERF} + \beta_M \cdot \text{MIDPERF}
++ \beta_H \cdot \text{HIGHPERF} + \gamma' Z + \varepsilon
 $$
 
-- **LOWPERF** = min(Rank, 0.2) — bottom 20%
-- **MIDPERF** = min(Rank − LOWPERF, 0.6) — middle 60%
-- **HIGHPERF** = Rank − LOWPERF − MIDPERF — top 20%
-
-Columns add controls incrementally: (1) Base, (2) +VIX, (3) +Calendar, (4) +Peer Flow.
+LOWPERF = bottom 20%, MIDPERF = middle 60%, HIGHPERF = top 20% of performance rank.
 """)
 
-t2_f = RESULTS / "table_2_sirri_tufano.csv"
-if t2_f.exists():
-    st.dataframe(pd.read_csv(t2_f), width="stretch", hide_index=True)
-    st.success(r"""
-    **Result**: HIGHPERF is significantly larger than MIDPERF, confirming the **convex
-    flow-performance relationship** in ETFs — the S&T prediction holds. Adding peer
-    flow control raises R² substantially.
-    """)
+from sirri_tufano import sirri_tufano_table
 
+@st.cache_data(show_spinner="Running S&T regression...")
+def compute_st_table(freq):
+    _df = load_data_with_controls(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    ranked = compute_fractional_rank(_df, return_col=_rc)
+    flow_col = "Flow_Pct" if "Flow_Pct" in ranked.columns else _fc
+    controls_seq = [
+        ("(1) Base", []),
+        ("(2) + VIX", [c for c in ["VIX_Change", "VIX_Lag_Change"] if c in ranked.columns]),
+        ("(3) + Peer", [c for c in ["VIX_Change", "VIX_Lag_Change", "Peer_Agg_Flow"]
+                        if c in ranked.columns]),
+    ]
+    return sirri_tufano_table(ranked, flow_col=flow_col, controls_sequence=controls_seq)
+
+t2 = compute_st_table(freq)
+if not t2.empty:
+    st.dataframe(t2, width="stretch", hide_index=True)
+    st.success("**Result**: HIGHPERF >> MIDPERF confirms the **convex flow-performance relationship**.")
     st.warning("""
-    **Note on LOWPERF**: The positive LOWPERF coefficient is puzzling — it means
-    even poorly performing ETFs receive some inflows. A possible explanation is
-    that ETFs with strong marketing (like ARK) continue attracting capital
-    despite poor relative performance. This is consistent with the Sirri & Tufano
-    "costly search" theory: marketing reduces search costs and drives flows
-    independently of performance.
+    **Note on LOWPERF**: A positive LOWPERF coefficient means even poorly performing
+    ETFs receive some inflows — possibly due to marketing offsetting bad performance.
     """)
 
-# Quadratic specification
-quad_f = RESULTS / "table_2_quadratic.csv"
-if quad_f.exists():
-    with st.expander("Alternative: Quadratic Performance Specification"):
-        st.markdown(r"""
-        Instead of splitting performance into LOW/MID/HIGH bins, we can test
-        for non-linearity using a **quadratic** specification:
-
-        $$
-        \text{Flow}_{i,t} = \alpha_i + \beta_1 \cdot \text{RANK}_{i,t}
-        + \beta_2 \cdot \text{RANK}_{i,t}^2 + \varepsilon_{i,t}
-        $$
-
-        If $\beta_2 > 0$, the relationship is convex (accelerating at the top).
-        """)
-        st.dataframe(pd.read_csv(quad_f).style.format({
-            "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
-            "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-            width="stretch", hide_index=True)
-
-# VIF multicollinearity check
-vif_f = RESULTS / "vif_table2.csv"
-if vif_f.exists():
-    with st.expander("Multicollinearity Check (VIF)"):
-        st.markdown("""
-        Variance Inflation Factors for the Table 2 regressors. VIF > 10 indicates
-        problematic multicollinearity.
-        """)
-        st.dataframe(pd.read_csv(vif_f).style.format({"VIF": "{:.2f}"}),
-                      width="stretch", hide_index=True)
 
 # ============================================================
-# 3. Daily Panel Specification (Table 3)
+# 3. Panel Specification
 # ============================================================
-st.header("3. Our Panel Specification (Daily)")
-st.markdown(r"""
-S&T used annual data with one "last year return" variable. Our **daily data** lets
-us decompose returns into **non-overlapping cumulative windows** to identify which
-time horizon drives performance chasing:
+st.header("3. Panel Specification with Cumulative Return Windows")
 
+win_labels = " + ".join([f"CumRet_{s}_{e}" for s, e in windows])
+st.markdown(rf"""
 $$
-\text{Flow}_{i,t} = \alpha_i
-+ \beta_1 \cdot \underbrace{\sum_{k=1}^{5} R_{i,t-k}}_{\text{last week}}
-+ \beta_2 \cdot \underbrace{\sum_{k=6}^{20} R_{i,t-k}}_{\text{last month}}
-+ \beta_3 \cdot \underbrace{\sum_{k=21}^{60} R_{i,t-k}}_{\text{last quarter}}
-+ \gamma' Z_{i,t} + \varepsilon_{i,t}
+\text{{Flow}}_{{i,t}} = \alpha_i + \beta_1 \cdot \text{{CumRet}}_{{{windows[0][0]}\text{{-}}{windows[0][1]}}}
++ \beta_2 \cdot \text{{CumRet}}_{{{windows[1][0]}\text{{-}}{windows[1][1]}}}
++ \beta_3 \cdot \text{{CumRet}}_{{{windows[2][0]}\text{{-}}{windows[2][1]}}}
++ \gamma' Z + \varepsilon
 $$
 
-Entity-demeaned OLS, standard errors clustered by ETF.
+Windows are in **{period}**. Entity-demeaned OLS, clustered SE by ETF.
 """)
 
-t3_f = RESULTS / "table_3_main_panel.csv"
-if t3_f.exists():
-    t3 = pd.read_csv(t3_f)
-    specs = t3["spec"].unique()
-    var_rows = t3[~t3["Variable"].isin(["R²", "N"])]
-    stat_rows = t3[t3["Variable"].isin(["R²", "N"])]
+from placebo import _panel_ols_demeaned, panel_ols_twoway
 
-    pivot = var_rows.pivot(index="Variable", columns="spec", values="Coefficient")
-    pvals = var_rows.pivot(index="Variable", columns="spec", values="p_value")
+@st.cache_data(show_spinner="Running panel regressions...")
+def compute_table_3(freq):
+    _df = load_data_with_controls(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    _windows = get_cumret_windows(freq)
 
-    # Build string DataFrame directly (pandas 3.x forbids writing str into float cols)
+    ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark[_fc])]
+    ark = build_cumret(ark, _rc, _windows)
+
+    x_base = cumret_cols(_windows)
+    vix = [c for c in ["VIX_Change", "VIX_Lag_Change"] if c in ark.columns]
+    cal = [c for c in ["month_end", "quarter_end", "january"] if c in ark.columns]
+    peer = [c for c in ["Peer_Agg_Flow"] if c in ark.columns]
+    events = [c for c in ark.columns if c.startswith("event_")]
+
+    specs = [
+        ("(1) Base", x_base),
+        ("(2) + VIX", x_base + vix),
+        ("(3) + Calendar", x_base + vix + cal),
+        ("(4) + Peer Flow", x_base + vix + cal + peer),
+        ("(5) + Events", x_base + vix + cal + peer + events),
+    ]
+
+    results = {}
+    for name, x_cols in specs:
+        valid = [c for c in x_cols if c in ark.columns]
+        res = _panel_ols_demeaned(ark, _fc, valid)
+        if res:
+            results[name] = res
+    return results
+
+t3 = compute_table_3(freq)
+if t3:
     rows_display = {}
-    for idx in pivot.index:
-        row_vals = {}
-        for col in pivot.columns:
-            c = pivot.loc[idx, col] if idx in pivot.index else np.nan
-            p = pvals.loc[idx, col] if idx in pvals.index else np.nan
-            row_vals[col] = f"{c:.2f}{_stars(p)}" if not pd.isna(c) else ""
-        rows_display[idx] = row_vals
-
-    for sv in ["R²", "N"]:
-        for spec in specs:
-            row = stat_rows[(stat_rows["spec"] == spec) & (stat_rows["Variable"] == sv)]
-            if not row.empty:
-                val = row.iloc[0]["Coefficient"]
-                rows_display.setdefault(sv, {})[spec] = f"{val:.4f}" if sv == "R²" else f"{int(val):,}"
+    for spec_name, res in t3.items():
+        for _, cr in res["coefficients"].iterrows():
+            var = cr["Variable"]
+            rows_display.setdefault(var, {})[spec_name] = (
+                f"{cr['Coefficient']:.2f}{stars(cr['p_value'])}")
+        r2 = res.get("r_squared", res.get("r_squared_within", np.nan))
+        rows_display.setdefault("R²", {})[spec_name] = f"{r2:.4f}"
+        rows_display.setdefault("N", {})[spec_name] = f"{res['n_obs']:,}"
 
     display = pd.DataFrame.from_dict(rows_display, orient="index")
-    display.index.name = "Variable"
+    st.dataframe(display, width="stretch")
 
-    order = [v for v in ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60",
-             "VIX_Change", "VIX_Lag_Change", "VIX_Close",
-             "month_end", "quarter_end", "january",
-             "Peer_Agg_Flow", "event_covid", "event_ukraine",
-             "event_fed_hikes", "event_banking_crisis", "event_arkb_approval",
-             "R²", "N"] if v in display.index]
-    st.dataframe(display.loc[order], width="stretch")
-
-    st.success("""
-    **Key finding**: The 1-5 day window (last week) is **not significant** — investors
-    don't react to daily noise. The 6-20 day and 21-60 day windows are **highly
-    significant** across all specifications. Performance chasing operates
-    on a **2-week to 3-month** horizon.
+    st.success(f"""
+    **Key finding**: The shortest window is not significant — investors don't react
+    to noise. The medium and long windows are highly significant. Performance chasing
+    operates on a **multi-{period[:-1]}** horizon.
     """)
 
-    # Highlight peer flow result (Task 10)
-    if "Peer_Agg_Flow" in display.index:
+    # Peer flow highlight
+    if any("Peer_Agg_Flow" in (res.get("coefficients", pd.DataFrame()).get("Variable", pd.Series())).values
+           for res in t3.values()):
         st.info("""
-        **Peer Aggregate Flow**: When money flows into the ETF's peer group,
-        the ETF itself also receives inflows — even after controlling for its own
-        performance. This suggests that investors allocate at the **category level**
-        (e.g., "tech ETFs" or "innovation ETFs"), not just the individual fund level.
-        This is a key control variable because it captures sector-wide momentum
-        that is not specific to any single ETF's performance.
+        **Peer Aggregate Flow**: When money flows into the ETF's peer group, the ETF
+        itself also receives inflows — investors allocate at the **category level**.
         """)
 
-# Per-ETF individual regressions (Task 5)
-t9_f = RESULTS / "table_9_per_etf.csv"
-if t9_f.exists():
-    with st.expander("Per-ETF Individual Regressions"):
-        st.markdown("""
-        The panel regression above pools all ETFs. Here we run the **same specification
-        separately for each ETF** to see which funds exhibit the strongest performance
-        chasing. HC1 robust standard errors (no clustering since N=1 per regression).
-        """)
-        t9 = pd.read_csv(t9_f)
-        # Pivot to show one row per ETF
-        for etf in t9["ETF"].unique():
-            etf_df = t9[t9["ETF"] == etf]
-            coefs = etf_df[~etf_df["Variable"].isin(["R²", "N"])]
-            r2_row = etf_df[etf_df["Variable"] == "R²"]
-            n_row = etf_df[etf_df["Variable"] == "N"]
-            r2_val = r2_row.iloc[0]["Coefficient"] if not r2_row.empty else None
-            n_val = int(n_row.iloc[0]["Coefficient"]) if not n_row.empty else None
-            label = f"**{etf}** (R²={r2_val:.4f}, N={n_val:,})" if r2_val else f"**{etf}**"
-            st.markdown(label)
-            st.dataframe(coefs[["Variable", "Coefficient", "Std_Error", "t_stat", "p_value"]].style.format({
-                "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
-                "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
-                width="stretch", hide_index=True)
 
 # ============================================================
-# 4. Economic Significance
+# 4. Per-ETF Individual Regressions
+# ============================================================
+with st.expander("Per-ETF Individual Regressions"):
+    @st.cache_data(show_spinner="Running per-ETF regressions...")
+    def compute_per_etf(freq):
+        _df = load_data_with_controls(freq)
+        _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+        _fc, _rc = get_cols(freq)
+        _windows = get_cumret_windows(freq)
+        ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+        ark = ark[np.isfinite(ark[_fc])]
+        ark = build_cumret(ark, _rc, _windows)
+        x_cols = cumret_cols(_windows)
+
+        rows = []
+        for etf in ETF_NAMES:
+            etf_df = ark[ark["ETF"] == etf][[_fc] + x_cols].dropna()
+            if len(etf_df) < 30:
+                continue
+            y = etf_df[_fc]
+            X = sm.add_constant(etf_df[x_cols])
+            m = sm.OLS(y, X).fit(cov_type="HC1")
+            for var in x_cols:
+                rows.append({"ETF": etf, "Variable": var,
+                             "Coefficient": m.params[var], "Std_Error": m.bse[var],
+                             "p_value": m.pvalues[var]})
+            rows.append({"ETF": etf, "Variable": "R²",
+                         "Coefficient": m.rsquared, "Std_Error": np.nan, "p_value": np.nan})
+        return pd.DataFrame(rows)
+
+    per_etf = compute_per_etf(freq)
+    if not per_etf.empty:
+        for etf in per_etf["ETF"].unique():
+            edf = per_etf[per_etf["ETF"] == etf]
+            r2 = edf[edf["Variable"] == "R²"]["Coefficient"].iloc[0] if "R²" in edf["Variable"].values else 0
+            st.markdown(f"**{etf}** (R² = {r2:.4f})")
+            st.dataframe(edf[edf["Variable"] != "R²"][["Variable", "Coefficient", "Std_Error", "p_value"]].style.format(
+                {"Coefficient": "{:.2f}", "Std_Error": "{:.2f}", "p_value": "{:.4f}"}),
+                width="stretch", hide_index=True)
+
+
+# ============================================================
+# 5. Economic Significance
 # ============================================================
 st.header("4. How Big Is the Effect?")
 
-econ_f = RESULTS / "economic_significance.csv"
-if econ_f.exists():
-    econ = pd.read_csv(econ_f)
-    if not econ.empty:
-        row = econ.iloc[0]
-        col1, col2, col3 = st.columns(3)
-        col1.metric("CumRet 1-5d", f"${row.get('CumRet_1_5_1sd_effect', 0):.2f}M per 1-SD")
-        col2.metric("CumRet 6-20d", f"${row.get('CumRet_6_20_1sd_effect', 0):.2f}M per 1-SD")
-        col3.metric("CumRet 21-60d", f"${row.get('CumRet_21_60_1sd_effect', 0):.2f}M per 1-SD")
+@st.cache_data(show_spinner="Computing economic significance...")
+def compute_econ_sig(freq):
+    _df = load_data_with_controls(freq)
+    _df = _df[_df["Date"] >= pd.Timestamp("2014-10-31")]
+    _fc, _rc = get_cols(freq)
+    _windows = get_cumret_windows(freq)
+    ark = _df[_df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark[_fc])]
+    ark = build_cumret(ark, _rc, _windows)
 
-        st.markdown(f"""
-        A one-standard-deviation increase in 6-20 day cumulative returns is associated
-        with **${row.get('CumRet_6_20_1sd_effect', 0):.1f}M** in additional daily fund flows.
-        With mean AUM of **${row.get('mean_aum_millions', 0):,.0f}M**, this represents a
-        meaningful capital reallocation signal.
-        """)
+    sd_flow = ark[_fc].std()
+    x_cols = cumret_cols(_windows)
+    result = {"sd_flow": sd_flow}
+    for col in x_cols:
+        sd = ark[col].dropna().std()
+        # Get coefficient from base spec
+        res = _panel_ols_demeaned(ark, _fc, x_cols)
+        if res:
+            coef_row = res["coefficients"][res["coefficients"]["Variable"] == col]
+            if not coef_row.empty:
+                beta = coef_row.iloc[0]["Coefficient"]
+                result[f"{col}_1sd_effect"] = beta * sd
+    return result
 
-st.info("**Next →** *The Dynamics*: S&T showed *that* investors chase. Our daily data shows *how*.")
+econ = compute_econ_sig(freq)
+if econ:
+    cols = st.columns(len(windows))
+    for i, (s, e) in enumerate(windows):
+        col_name = f"CumRet_{s}_{e}"
+        effect = econ.get(f"{col_name}_1sd_effect", 0)
+        cols[i].metric(f"CumRet {s}-{e} {period}", f"${effect:.2f}M per 1-SD")
+
+st.info(f"**Next** → *The Dynamics*: How does the effect unfold over {period}?")

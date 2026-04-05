@@ -1,72 +1,36 @@
-"""Page 1: The Data — Price-flow time series, summary statistics, ARK vs peers."""
+"""Page 1: The Data — Price-flow time series, cumulative flows, summary stats."""
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from data_loader import get_prepared_data_with_peers, ETF_NAMES, ALL_ETF_NAMES
-
-RESULTS = Path(__file__).parent.parent / "experiments" / "results_v2"
+from _shared import (sidebar_freq, sidebar_etf, load_data, get_cols,
+                      ETF_NAMES, FREQ_LABELS)
 
 st.set_page_config(page_title="The Data", layout="wide")
 st.title("The Data")
 st.markdown("""
-Before testing any hypothesis, let's look at the raw data. We study **9 ARK ETFs**
-and **29 tech peer ETFs** using Bloomberg daily net fund flows (creation/redemption),
+Before testing any hypothesis, let's look at the raw data. We study **6 ARK ETFs**
+and their **peer ETFs** using Bloomberg daily net fund flows (creation/redemption),
 OHLCV prices, and monthly AUM from **2014 to 2026**.
 """)
 
-# --- Sidebar ---
-ETF_NAMES_DISPLAY = {
-    "ARKK": "ARK Innovation", "ARKF": "ARK Fintech", "ARKG": "ARK Genomic",
-    "ARKX": "ARK Space & Defense", "ARKQ": "ARK Autonomous Tech",
-    "ARKW": "ARK Next Gen Internet",
-}
-
-with st.sidebar:
-    freq = st.selectbox(
-        "Frequency", ["D", "W", "ME", "QE"],
-        format_func={"D": "Daily", "W": "Weekly", "ME": "Monthly", "QE": "Quarterly"}.get,
-        index=2,
-    )
-    selected_etf = st.selectbox(
-        "Select ETF", ETF_NAMES, index=0,
-        format_func=lambda x: f"{x} — {ETF_NAMES_DISPLAY.get(x, x)}",
-    )
-
-
-@st.cache_data(show_spinner="Loading data...")
-def load_data(freq):
-    return get_prepared_data_with_peers(freq=freq, zscore_type="full", benchmark="SPY")
-
+freq = sidebar_freq(key="data_freq")
+selected_etf = sidebar_etf(key="data_etf")
 
 df = load_data(freq)
 df = df[df["Date"] >= pd.Timestamp("2014-10-31")]
-
-fc = "Fund_Flow" if freq == "D" else "Flow_Sum"
-rc = "Return" if freq == "D" else "Return_Cum"
+fc, rc = get_cols(freq)
+period = FREQ_LABELS[freq]
 
 # ============================================================
-# 1. Price + Fund Flow Chart
+# 1. Price and Fund Flow
 # ============================================================
 st.header("1. Price and Fund Flow")
-
 st.info("""
-**Fund Flow Definition**: Net fund flow measures the dollar amount of new capital
-entering or leaving an ETF each day through the creation/redemption process.
-It is reported in **millions of USD per day** from Bloomberg. Positive = net inflows
-(new shares created), negative = net outflows (shares redeemed). This captures
-investor-driven capital allocation decisions, not price changes.
-""")
-
-st.markdown(f"""
-The chart below shows **{selected_etf}**'s price (candlestick, right axis) alongside
-net fund flows (bars, left axis). Green = inflows, red = outflows.
-This is the raw phenomenon we're investigating: **do capital flows follow price movements?**
+**Fund Flow Definition**: Net capital entering or leaving an ETF each day through
+the creation/redemption process, in **millions of USD**, from Bloomberg.
+Positive = net inflows (new shares created), negative = net outflows (shares redeemed).
 """)
 
 etf_ts = df[df["ETF"] == selected_etf].sort_values("Date")
@@ -98,49 +62,35 @@ if len(etf_ts) > 0 and "Close_Last" in etf_ts.columns:
 # 1b. Cumulative Fund Flow
 # ============================================================
 st.subheader("Cumulative Fund Flow")
-st.markdown(f"""
-The cumulative sum of daily fund flows shows the **total capital accumulated**
-in {selected_etf} over time. A rising line means sustained net inflows.
-""")
-
-etf_cum = df[df["ETF"] == selected_etf].sort_values("Date").copy()
-if len(etf_cum) > 0:
+if len(etf_ts) > 0:
+    etf_cum = etf_ts.copy()
     etf_cum["Cumulative_Flow"] = etf_cum[fc].cumsum()
     fig_cum = go.Figure()
     fig_cum.add_trace(go.Scatter(
         x=etf_cum["Date"], y=etf_cum["Cumulative_Flow"],
         mode="lines", line=dict(color="#1f77b4", width=2),
-        name="Cumulative Flow",
         hovertemplate="%{x|%Y-%m}<br>Cumulative: %{y:,.0f}M<extra></extra>"))
     fig_cum.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-    fig_cum.update_layout(
-        height=350, yaxis_title="Cumulative Fund Flow ($M)",
-        title=f"{selected_etf}: Cumulative Net Fund Flow")
+    fig_cum.update_layout(height=350, yaxis_title="Cumulative Fund Flow ($M)",
+                          title=f"{selected_etf}: Cumulative Net Fund Flow")
     st.plotly_chart(fig_cum, width="stretch")
-
 
 # ============================================================
 # 2. Summary Statistics
 # ============================================================
 st.header("2. Summary Statistics")
-st.markdown(r"""
-Descriptive statistics for the daily panel of 9 ARK ETFs. The **between/within
-decomposition** shows how much variation comes from differences *across* ETFs
-vs. changes *within* each ETF over time. High within-% justifies entity fixed effects.
-""")
 
-summary_f = RESULTS / "table_1_summary.csv"
-bw_f = RESULTS / "table_1_bw.csv"
-
-col1, col2 = st.columns(2)
-if summary_f.exists():
+from summary_stats import panel_summary
+ark_df = df[df["ETF"].isin(ETF_NAMES)]
+if len(ark_df) > 0:
+    stats = panel_summary(ark_df, flow_col=fc, return_col=rc)
+    col1, col2 = st.columns(2)
     with col1:
         st.subheader("Descriptive Statistics")
-        st.dataframe(pd.read_csv(summary_f), width="stretch", hide_index=True)
-if bw_f.exists():
+        st.dataframe(stats["overall"], width="stretch", hide_index=True)
     with col2:
         st.subheader("Between/Within Decomposition")
-        st.dataframe(pd.read_csv(bw_f), width="stretch", hide_index=True)
+        st.dataframe(stats["between_within"], width="stretch", hide_index=True)
 
 # ============================================================
 # 3. ARK vs Peers
@@ -152,11 +102,6 @@ flow_display = st.radio("Flow metric", ["Raw $ (millions)", "% of AUM"],
 fc_comp = fc if flow_display == "Raw $ (millions)" else "Flow_Pct"
 fc_label = "Fund Flow ($M)" if flow_display == "Raw $ (millions)" else "Fund Flow (% of AUM)"
 
-st.markdown(f"""
-Are ARK flows different from peers? The plot below compares the average fund flow
-({fc_label}) for ARK ETFs vs. tech peer ETFs (20-period moving average).
-""")
-
 ark_flows = df[df["ETF"].isin(ETF_NAMES)].groupby("Date")[fc_comp].mean()
 peer_etfs = [e for e in df["ETF"].unique() if e not in ETF_NAMES]
 if peer_etfs:
@@ -165,15 +110,14 @@ if peer_etfs:
     fig_comp.add_trace(go.Scatter(
         x=ark_flows.index, y=ark_flows.rolling(20, min_periods=5).mean(),
         name="ARK ETFs (20-period MA)", line=dict(color="#d62728", width=2),
-        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}M<extra>ARK</extra>"))
+        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}<extra>ARK</extra>"))
     fig_comp.add_trace(go.Scatter(
         x=peer_flows.index, y=peer_flows.rolling(20, min_periods=5).mean(),
         name="Peer ETFs (20-period MA)", line=dict(color="#1f77b4", width=2),
-        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}M<extra>Peers</extra>"))
+        hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}<extra>Peers</extra>"))
     fig_comp.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-    fig_comp.update_layout(
-        height=400, yaxis_title=f"Average {fc_label}",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02))
+    fig_comp.update_layout(height=400, yaxis_title=f"Average {fc_label}",
+                           legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig_comp, width="stretch")
 
-st.info("**Next →** *The Evidence*: Do these visual patterns hold up statistically?")
+st.info(f"**Next** → *The Evidence*: Do these patterns hold up statistically? (currently showing **{FREQ_LABELS[freq]}** data)")
