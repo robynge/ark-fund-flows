@@ -54,6 +54,15 @@ rc = "Return" if freq == "D" else "Return_Cum"
 # 1. Price + Fund Flow Chart
 # ============================================================
 st.header("1. Price and Fund Flow")
+
+st.info("""
+**Fund Flow Definition**: Net fund flow measures the dollar amount of new capital
+entering or leaving an ETF each day through the creation/redemption process.
+It is reported in **millions of USD per day** from Bloomberg. Positive = net inflows
+(new shares created), negative = net outflows (shares redeemed). This captures
+investor-driven capital allocation decisions, not price changes.
+""")
+
 st.markdown(f"""
 The chart below shows **{selected_etf}**'s price (candlestick, right axis) alongside
 net fund flows (bars, left axis). Green = inflows, red = outflows.
@@ -86,6 +95,31 @@ if len(etf_ts) > 0 and "Close_Last" in etf_ts.columns:
     st.plotly_chart(fig, width="stretch")
 
 # ============================================================
+# 1b. Cumulative Fund Flow
+# ============================================================
+st.subheader("Cumulative Fund Flow")
+st.markdown(f"""
+The cumulative sum of daily fund flows shows the **total capital accumulated**
+in {selected_etf} over time. A rising line means sustained net inflows.
+""")
+
+etf_cum = df[df["ETF"] == selected_etf].sort_values("Date").copy()
+if len(etf_cum) > 0:
+    etf_cum["Cumulative_Flow"] = etf_cum[fc].cumsum()
+    fig_cum = go.Figure()
+    fig_cum.add_trace(go.Scatter(
+        x=etf_cum["Date"], y=etf_cum["Cumulative_Flow"],
+        mode="lines", line=dict(color="#1f77b4", width=2),
+        name="Cumulative Flow",
+        hovertemplate="%{x|%Y-%m}<br>Cumulative: %{y:,.0f}M<extra></extra>"))
+    fig_cum.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    fig_cum.update_layout(
+        height=350, yaxis_title="Cumulative Fund Flow ($M)",
+        title=f"{selected_etf}: Cumulative Net Fund Flow")
+    st.plotly_chart(fig_cum, width="stretch")
+
+
+# ============================================================
 # 2. Summary Statistics
 # ============================================================
 st.header("2. Summary Statistics")
@@ -112,15 +146,21 @@ if bw_f.exists():
 # 3. ARK vs Peers
 # ============================================================
 st.header("3. ARK vs. Peer Fund Flows")
-st.markdown("""
+
+flow_display = st.radio("Flow metric", ["Raw $ (millions)", "% of AUM"],
+                         horizontal=True, key="ark_vs_peer_flow")
+fc_comp = fc if flow_display == "Raw $ (millions)" else "Flow_Pct"
+fc_label = "Fund Flow ($M)" if flow_display == "Raw $ (millions)" else "Fund Flow (% of AUM)"
+
+st.markdown(f"""
 Are ARK flows different from peers? The plot below compares the average fund flow
-for ARK ETFs vs. tech peer ETFs (20-period moving average).
+({fc_label}) for ARK ETFs vs. tech peer ETFs (20-period moving average).
 """)
 
-ark_flows = df[df["ETF"].isin(ETF_NAMES)].groupby("Date")[fc].mean()
+ark_flows = df[df["ETF"].isin(ETF_NAMES)].groupby("Date")[fc_comp].mean()
 peer_etfs = [e for e in df["ETF"].unique() if e not in ETF_NAMES]
 if peer_etfs:
-    peer_flows = df[df["ETF"].isin(peer_etfs)].groupby("Date")[fc].mean()
+    peer_flows = df[df["ETF"].isin(peer_etfs)].groupby("Date")[fc_comp].mean()
     fig_comp = go.Figure()
     fig_comp.add_trace(go.Scatter(
         x=ark_flows.index, y=ark_flows.rolling(20, min_periods=5).mean(),
@@ -132,7 +172,7 @@ if peer_etfs:
         hovertemplate="%{x|%Y-%m}<br>Avg flow: %{y:.2f}M<extra>Peers</extra>"))
     fig_comp.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
     fig_comp.update_layout(
-        height=400, yaxis_title="Average Fund Flow ($M)",
+        height=400, yaxis_title=f"Average {fc_label}",
         legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig_comp, width="stretch")
 

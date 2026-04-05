@@ -389,3 +389,46 @@ def rolling_panel_regression(df: pd.DataFrame, y_col: str, x_cols: list[str],
         results.append(row)
 
     return pd.DataFrame(results)
+
+
+# ============================================================
+# Predicted vs Actual flow analysis
+# ============================================================
+
+def predicted_vs_actual(df: pd.DataFrame, y_col: str, x_cols: list[str],
+                        entity_col: str = "ETF") -> pd.DataFrame:
+    """Compute predicted flow (F_hat) from panel FE model, then residual per ETF.
+
+    Returns DataFrame with: ETF, mean_actual, mean_predicted, mean_residual,
+    std_residual, n_obs. Positive residual = actual flows exceed what performance
+    predicts (potential marketing premium).
+    """
+    keep = [entity_col, y_col] + x_cols
+    sub = df[keep].dropna()
+    if len(sub) < 30:
+        return pd.DataFrame()
+
+    # Entity-demean
+    y = sub[y_col] - sub.groupby(entity_col)[y_col].transform("mean")
+    X = sub[x_cols].copy()
+    for col in x_cols:
+        X[col] = X[col] - sub.groupby(entity_col)[col].transform("mean")
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+
+    # Predicted (demeaned) + add back entity means for actual levels
+    entity_means = sub.groupby(entity_col)[y_col].transform("mean")
+    sub = sub.copy()
+    sub["predicted"] = model.fittedvalues + entity_means
+    sub["residual"] = sub[y_col] - sub["predicted"]
+
+    result = sub.groupby(entity_col).agg(
+        mean_actual=(y_col, "mean"),
+        mean_predicted=("predicted", "mean"),
+        mean_residual=("residual", "mean"),
+        std_residual=("residual", "std"),
+        n_obs=(y_col, "count"),
+    ).reset_index()
+
+    return result

@@ -113,9 +113,10 @@ st.markdown("""
 
 | Page | Question | Content |
 |------|----------|---------|
-| **The Data** | *What does the data look like?* | Price + fund flow chart, summary statistics, ARK vs peers |
-| **The Evidence** | *Do investors chase?* | S&T scatter, piecewise regression, panel specification, economic significance |
+| **The Data** | *What does the data look like?* | Price + fund flow chart, cumulative flows, summary statistics, ARK vs peers |
+| **The Evidence** | *Do investors chase?* | S&T scatter, piecewise + quadratic regression, panel specification, per-ETF results |
 | **The Dynamics** | *How do they chase?* | Impulse response, asymmetric response, bull/bear regimes, drawdown events |
-| **Robustness** | *Should we believe this?* | Placebo, leave-one-out, DK SE, Flow %AUM, heteroscedasticity diagnostics |
+| **Robustness** | *Should we believe this?* | SE comparison, Granger causality, ARKK heterogeneity, rolling coefficients |
 | **Explorer** | *Let me see for myself* | Per-ETF interactive analysis: distributions, lag structure, correlations |
+| **Marketing Premium** | *Is marketing driving flows?* | Predicted vs actual flows per ETF, residual analysis |
 """)

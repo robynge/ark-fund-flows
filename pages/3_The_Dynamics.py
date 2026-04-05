@@ -79,14 +79,25 @@ $$
 + \varepsilon_{i,t+h}
 $$
 
-If $|\beta^{+}| > |\beta^{-}|$, investors **chase gains more than they flee losses**.
+The blue line shows the flow response to a **+1% return shock** (gain chasing).
+The red line shows the flow response to a **-1% return shock** (loss fleeing).
+If the blue line is higher than the red line in absolute terms, investors
+**chase gains more aggressively than they flee losses**.
 """)
 
 asym_f = RESULTS / "figure_2_asymmetric_lp.csv"
 if asym_f.exists():
     asym = pd.read_csv(asym_f)
+
+    # beta_neg is the coefficient on min(Return, 0) which is NEGATIVE.
+    # To show the marginal effect of a 1% LOSS, we negate beta_neg and its CIs.
+    # This way: positive red line = outflows after losses, which is intuitive.
+    asym["beta_neg_plot"] = -asym["beta_neg"]
+    asym["ci_lower_neg_plot"] = -asym["ci_upper_neg"]  # flip bounds when negating
+    asym["ci_upper_neg_plot"] = -asym["ci_lower_neg"]
+
     fig = go.Figure()
-    # Positive shock
+    # Positive shock (chasing): effect of +1% gain
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_pos"],
                              mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_pos"],
@@ -94,18 +105,18 @@ if asym_f.exists():
                              fillcolor="rgba(31,119,180,0.15)", showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_pos"],
                              mode="lines+markers", line=dict(color="#1f77b4", width=2),
-                             marker=dict(size=4), name="Positive shock (chasing)",
-                             hovertemplate="h=%{x}<br>β⁺=%{y:.2f}<extra></extra>"))
-    # Negative shock
-    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_neg"],
+                             marker=dict(size=4), name="+1% gain → flow response",
+                             hovertemplate="h=%{x}<br>Flow response: %{y:.1f}M<extra></extra>"))
+    # Negative shock (fleeing): marginal effect of -1% loss (negated for intuitive display)
+    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_upper_neg_plot"],
                              mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_neg"],
+    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["ci_lower_neg_plot"],
                              mode="lines", line=dict(width=0), fill="tonexty",
                              fillcolor="rgba(214,39,40,0.15)", showlegend=False, hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_neg"],
+    fig.add_trace(go.Scatter(x=asym["horizon"], y=asym["beta_neg_plot"],
                              mode="lines+markers", line=dict(color="#d62728", width=2),
-                             marker=dict(size=4), name="Negative shock (fleeing)",
-                             hovertemplate="h=%{x}<br>β⁻=%{y:.2f}<extra></extra>"))
+                             marker=dict(size=4), name="-1% loss → flow response",
+                             hovertemplate="h=%{x}<br>Flow response: %{y:.1f}M<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="gray")
     fig.update_layout(height=450, xaxis_title="Horizon (trading days)",
                       yaxis_title="Response of Fund Flow ($M)",

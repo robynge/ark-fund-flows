@@ -46,6 +46,7 @@ from placebo import (
     subsample_comparison, fama_macbeth,
     breusch_pagan_test, white_test, driscoll_kraay_panel,
     panel_ols_twoway, rolling_panel_regression,
+    predicted_vs_actual,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,9 +92,12 @@ def prepare_controls(df: pd.DataFrame, freq: str = "D",
     """
     pdf = df.copy()
 
-    # Factor C: VIX
+    # Factor C: VIX (level + change + lagged change)
     try:
         pdf = apply_factor_C(pdf, method="control", date_col=date_col)
+        if "VIX_Close" in pdf.columns:
+            pdf["VIX_Change"] = pdf["VIX_Close"].diff()
+            pdf["VIX_Lag_Change"] = pdf["VIX_Change"].shift(1)
     except Exception as e:
         logger.warning("Failed to add VIX control: %s", e)
 
@@ -168,7 +172,18 @@ def run_table_2(df_monthly: pd.DataFrame) -> dict:
     # Also get the base regression result for convexity test
     base = sirri_tufano_regression(df, flow_col="Flow_Pct")
 
-    return {"table": table, "base_regression": base}
+    # Quadratic specification: RANK + RANK² instead of piecewise
+    df["RANK_sq"] = df["RANK"] ** 2
+    quad_x = ["RANK", "RANK_sq"]
+    quad_df = df[["ETF", "Date", "Flow_Pct", "RANK", "RANK_sq"]].dropna()
+    quad_df = quad_df[np.isfinite(quad_df["Flow_Pct"])]
+    try:
+        quad_res = panel_ols_twoway(quad_df, "Flow_Pct", quad_x)
+    except Exception as e:
+        logger.warning("Quadratic spec failed: %s", e)
+        quad_res = None
+
+    return {"table": table, "base_regression": base, "quadratic": quad_res}
 
 
 # ============================================================
@@ -192,7 +207,7 @@ def run_table_3(df_daily: pd.DataFrame) -> dict:
     base_x = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
 
     # Define incremental control sets
-    vix_cols = [c for c in ["VIX_Close"] if c in ark.columns]
+    vix_cols = [c for c in ["VIX_Change", "VIX_Lag_Change"] if c in ark.columns]
     cal_cols = [c for c in ["month_end", "quarter_end", "january"] if c in ark.columns]
     peer_cols = [c for c in ["Peer_Agg_Flow"] if c in ark.columns]
     event_cols = [c for c in ark.columns if c.startswith("event_")]
@@ -385,6 +400,91 @@ def run_table_5f(df: pd.DataFrame) -> dict:
         "breusch_pagan": bp,
         "white": w,
     }
+
+
+def run_predicted_vs_actual(df: pd.DataFrame) -> pd.DataFrame:
+    """Predicted vs actual fund flows per ETF (marketing premium analysis)."""
+    logger.info("Running Predicted vs Actual flow analysis")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+    # Add available controls
+    for c in ["VIX_Change", "Peer_Agg_Flow"]:
+        if c in ark.columns:
+            x_cols.append(c)
+
+    return predicted_vs_actual(ark, "Fund_Flow", x_cols)
+
+
+def run_table_9(df: pd.DataFrame) -> pd.DataFrame:
+    """Table 9: Per-ETF individual OLS regressions with cumulative return windows."""
+    logger.info("Running Table 9 (per-ETF regressions)")
+
+    ark = df[df["ETF"].isin(ETF_NAMES)].copy()
+    ark = ark[np.isfinite(ark["Fund_Flow"])]
+    ark = build_non_overlapping_cumret(ark, "Return")
+    x_cols = ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60"]
+
+    rows = []
+    for etf in ETF_NAMES:
+        etf_df = ark[ark["ETF"] == etf][["Fund_Flow"] + x_cols].dropna()
+        if len(etf_df) < 30:
+            continue
+        y = etf_df["Fund_Flow"]
+        X = sm.add_constant(etf_df[x_cols])
+        m = sm.OLS(y, X).fit(cov_type="HC1")
+        for var in x_cols:
+            rows.append({
+                "ETF": etf,
+                "Variable": var,
+                "Coefficient": m.params[var],
+                "Std_Error": m.bse[var],
+                "t_stat": m.tvalues[var],
+                "p_value": m.pvalues[var],
+            })
+        rows.append({
+            "ETF": etf, "Variable": "R²",
+            "Coefficient": m.rsquared, "Std_Error": np.nan,
+            "t_stat": np.nan, "p_value": np.nan,
+        })
+        rows.append({
+            "ETF": etf, "Variable": "N",
+            "Coefficient": int(m.nobs), "Std_Error": np.nan,
+            "t_stat": np.nan, "p_value": np.nan,
+        })
+    return pd.DataFrame(rows)
+
+
+def run_vif(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute Variance Inflation Factors for Table 2 regressors."""
+    logger.info("Running VIF (multicollinearity check)")
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+    from sirri_tufano import compute_fractional_rank
+    ranked = compute_fractional_rank(df, return_col="Return_Cum" if "Return_Cum" in df.columns else "Return")
+    x_cols = ["LOWPERF", "MIDPERF", "HIGHPERF"]
+    for c in ["VIX_Close", "Peer_Agg_Flow"]:
+        if c in ranked.columns:
+            x_cols.append(c)
+
+    sub = ranked[x_cols].dropna()
+    sub = sub[np.isfinite(sub).all(axis=1)]
+    if len(sub) < 30:
+        return pd.DataFrame(columns=["Variable", "VIF"])
+    X = sm.add_constant(sub)
+    vifs = []
+    for i, col in enumerate(X.columns):
+        if col == "const":
+            continue
+        try:
+            v = variance_inflation_factor(X.values, i)
+            vifs.append({"Variable": col, "VIF": v})
+        except Exception:
+            vifs.append({"Variable": col, "VIF": np.nan})
+    return pd.DataFrame(vifs)
 
 
 def run_table_6(df: pd.DataFrame) -> pd.DataFrame:
@@ -641,6 +741,8 @@ def run_all(output_dir: str | None = None) -> dict:
     all_results["table_2"] = t2
     if not t2["table"].empty:
         t2["table"].to_csv(out / "table_2_sirri_tufano.csv", index=False)
+    if t2.get("quadratic") and "coefficients" in t2["quadratic"]:
+        t2["quadratic"]["coefficients"].to_csv(out / "table_2_quadratic.csv", index=False)
     logger.info("Table 2 saved")
 
     # Table 3
@@ -726,6 +828,27 @@ def run_all(output_dir: str | None = None) -> dict:
     all_results["figure_st1"] = fst1
     fst1.to_csv(out / "figure_st1_scatter.csv", index=False)
     logger.info("Figure ST1 data saved")
+
+    # VIF multicollinearity
+    vif = run_vif(df_monthly)
+    all_results["vif"] = vif
+    if not vif.empty:
+        vif.to_csv(out / "vif_table2.csv", index=False)
+    logger.info("VIF saved")
+
+    # Predicted vs Actual
+    pva = run_predicted_vs_actual(df_daily)
+    all_results["predicted_vs_actual"] = pva
+    if not pva.empty:
+        pva.to_csv(out / "predicted_vs_actual.csv", index=False)
+    logger.info("Predicted vs Actual saved")
+
+    # Table 9: Per-ETF regressions
+    t9 = run_table_9(df_daily)
+    all_results["table_9"] = t9
+    if not t9.empty:
+        t9.to_csv(out / "table_9_per_etf.csv", index=False)
+    logger.info("Table 9 saved")
 
     # Table 6: SE comparison
     t6 = run_table_6(df_daily)

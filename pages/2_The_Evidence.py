@@ -84,6 +84,22 @@ if scatter_f.exists():
         legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, width="stretch")
 
+    # Line-only version (professor requested for presentations)
+    with st.expander("Show line-only version (no individual points)"):
+        fig_line = go.Figure()
+        fig_line.add_trace(go.Scatter(
+            x=bin_means["rank_mid"], y=bin_means["flow_mean"],
+            mode="lines+markers", line=dict(color="#d62728", width=3),
+            marker=dict(size=8), name="20-bin average",
+            hovertemplate="Rank: %{x:.2f}<br>Avg flow: %{y:.2f}%<extra></extra>"))
+        fig_line.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+        fig_line.update_layout(
+            height=400,
+            xaxis_title="Performance Rank (0 = worst, 1 = best)",
+            yaxis_title="Fund Flow (% of AUM)",
+            title="Performance Rank vs. Fund Flow (Bin Averages Only)")
+        st.plotly_chart(fig_line, width="stretch")
+
 # ============================================================
 # 2. S&T Piecewise Linear Regression (Table 2)
 # ============================================================
@@ -111,10 +127,50 @@ t2_f = RESULTS / "table_2_sirri_tufano.csv"
 if t2_f.exists():
     st.dataframe(pd.read_csv(t2_f), width="stretch", hide_index=True)
     st.success(r"""
-    **Result**: HIGHPERF = 18.2*** is **10× larger** than MIDPERF = 1.76 (ns).
-    This confirms the **convex flow-performance relationship** in ETFs — the S&T
-    prediction holds. Adding peer flow control (col 4) raises R² from 2.4% to 9.0%.
+    **Result**: HIGHPERF is significantly larger than MIDPERF, confirming the **convex
+    flow-performance relationship** in ETFs — the S&T prediction holds. Adding peer
+    flow control raises R² substantially.
     """)
+
+    st.warning("""
+    **Note on LOWPERF**: The positive LOWPERF coefficient is puzzling — it means
+    even poorly performing ETFs receive some inflows. A possible explanation is
+    that ETFs with strong marketing (like ARK) continue attracting capital
+    despite poor relative performance. This is consistent with the Sirri & Tufano
+    "costly search" theory: marketing reduces search costs and drives flows
+    independently of performance.
+    """)
+
+# Quadratic specification
+quad_f = RESULTS / "table_2_quadratic.csv"
+if quad_f.exists():
+    with st.expander("Alternative: Quadratic Performance Specification"):
+        st.markdown(r"""
+        Instead of splitting performance into LOW/MID/HIGH bins, we can test
+        for non-linearity using a **quadratic** specification:
+
+        $$
+        \text{Flow}_{i,t} = \alpha_i + \beta_1 \cdot \text{RANK}_{i,t}
+        + \beta_2 \cdot \text{RANK}_{i,t}^2 + \varepsilon_{i,t}
+        $$
+
+        If $\beta_2 > 0$, the relationship is convex (accelerating at the top).
+        """)
+        st.dataframe(pd.read_csv(quad_f).style.format({
+            "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
+            "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
+            width="stretch", hide_index=True)
+
+# VIF multicollinearity check
+vif_f = RESULTS / "vif_table2.csv"
+if vif_f.exists():
+    with st.expander("Multicollinearity Check (VIF)"):
+        st.markdown("""
+        Variance Inflation Factors for the Table 2 regressors. VIF > 10 indicates
+        problematic multicollinearity.
+        """)
+        st.dataframe(pd.read_csv(vif_f).style.format({"VIF": "{:.2f}"}),
+                      width="stretch", hide_index=True)
 
 # ============================================================
 # 3. Daily Panel Specification (Table 3)
@@ -167,7 +223,8 @@ if t3_f.exists():
     display.index.name = "Variable"
 
     order = [v for v in ["CumRet_1_5", "CumRet_6_20", "CumRet_21_60",
-             "VIX_Close", "month_end", "quarter_end", "january",
+             "VIX_Change", "VIX_Lag_Change", "VIX_Close",
+             "month_end", "quarter_end", "january",
              "Peer_Agg_Flow", "event_covid", "event_ukraine",
              "event_fed_hikes", "event_banking_crisis", "event_arkb_approval",
              "R²", "N"] if v in display.index]
@@ -176,9 +233,45 @@ if t3_f.exists():
     st.success("""
     **Key finding**: The 1-5 day window (last week) is **not significant** — investors
     don't react to daily noise. The 6-20 day and 21-60 day windows are **highly
-    significant** (p < 0.01) across all specifications. Performance chasing operates
+    significant** across all specifications. Performance chasing operates
     on a **2-week to 3-month** horizon.
     """)
+
+    # Highlight peer flow result (Task 10)
+    if "Peer_Agg_Flow" in display.index:
+        st.info("""
+        **Peer Aggregate Flow**: When money flows into the ETF's peer group,
+        the ETF itself also receives inflows — even after controlling for its own
+        performance. This suggests that investors allocate at the **category level**
+        (e.g., "tech ETFs" or "innovation ETFs"), not just the individual fund level.
+        This is a key control variable because it captures sector-wide momentum
+        that is not specific to any single ETF's performance.
+        """)
+
+# Per-ETF individual regressions (Task 5)
+t9_f = RESULTS / "table_9_per_etf.csv"
+if t9_f.exists():
+    with st.expander("Per-ETF Individual Regressions"):
+        st.markdown("""
+        The panel regression above pools all ETFs. Here we run the **same specification
+        separately for each ETF** to see which funds exhibit the strongest performance
+        chasing. HC1 robust standard errors (no clustering since N=1 per regression).
+        """)
+        t9 = pd.read_csv(t9_f)
+        # Pivot to show one row per ETF
+        for etf in t9["ETF"].unique():
+            etf_df = t9[t9["ETF"] == etf]
+            coefs = etf_df[~etf_df["Variable"].isin(["R²", "N"])]
+            r2_row = etf_df[etf_df["Variable"] == "R²"]
+            n_row = etf_df[etf_df["Variable"] == "N"]
+            r2_val = r2_row.iloc[0]["Coefficient"] if not r2_row.empty else None
+            n_val = int(n_row.iloc[0]["Coefficient"]) if not n_row.empty else None
+            label = f"**{etf}** (R²={r2_val:.4f}, N={n_val:,})" if r2_val else f"**{etf}**"
+            st.markdown(label)
+            st.dataframe(coefs[["Variable", "Coefficient", "Std_Error", "t_stat", "p_value"]].style.format({
+                "Coefficient": "{:.2f}", "Std_Error": "{:.2f}",
+                "t_stat": "{:.2f}", "p_value": "{:.4f}"}),
+                width="stretch", hide_index=True)
 
 # ============================================================
 # 4. Economic Significance
