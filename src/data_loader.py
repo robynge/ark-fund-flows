@@ -534,7 +534,8 @@ def merge_aum(df: pd.DataFrame, freq: str = "D") -> pd.DataFrame:
     df = df.merge(aum[["Date", "ETF", "AUM"]], on=["Date", "ETF"], how="left")
 
     flow_col = "Fund_Flow" if freq == "D" else "Flow_Sum"
-    df["Flow_Pct"] = df[flow_col] / df["AUM"] * 100
+    aum_safe = df["AUM"].replace(0, np.nan)
+    df["Flow_Pct"] = df[flow_col] / aum_safe * 100
     return df
 
 

@@ -103,10 +103,15 @@ flow_display = st.radio("Flow metric", ["Raw $ (millions)", "% of AUM"],
 fc_comp = fc if flow_display == "Raw $ (millions)" else "Flow_Pct"
 fc_label = "Fund Flow ($M)" if flow_display == "Raw $ (millions)" else "Fund Flow (% of AUM)"
 
-ark_flows = df[df["ETF"].isin(ETF_NAMES)].groupby("Date")[fc_comp].mean()
-peer_etfs = [e for e in df["ETF"].unique() if e not in ETF_NAMES]
+# For % of AUM, filter out extreme values from tiny-AUM ETFs (e.g. VOLT AUM=$25)
+df_comp = df.copy()
+if fc_comp == "Flow_Pct":
+    df_comp = df_comp[df_comp["Flow_Pct"].between(-100, 100)]
+
+ark_flows = df_comp[df_comp["ETF"].isin(ETF_NAMES)].groupby("Date")[fc_comp].mean()
+peer_etfs = [e for e in df_comp["ETF"].unique() if e not in ETF_NAMES]
 if peer_etfs:
-    peer_flows = df[df["ETF"].isin(peer_etfs)].groupby("Date")[fc_comp].mean()
+    peer_flows = df_comp[df_comp["ETF"].isin(peer_etfs)].groupby("Date")[fc_comp].mean()
     fig_comp = go.Figure()
     fig_comp.add_trace(go.Scatter(
         x=ark_flows.index, y=ark_flows.rolling(20, min_periods=5).mean(),
